@@ -340,7 +340,8 @@ The **generator** model takes random input values (noise) and transforms them in
 Over the course of many training iterations, the weights and biases in the discriminator and the generator are trained through backpropagation. The discriminator learns to tell "real" images of handwritten digits apart from "fake" images created by the generator. At the same time, the generator uses feedback from the discriminator to learn how to produce convincing images that the discriminator can't distinguish from real images.
 """
 
-from tensorflow.keras.optimizers.legacy import Adam
+from keras.optimizers import Adam
+
 
 def build_gan(data_shape, latent_dim, filters=128, lr=0.0002, beta_1=0.5):
     optimizer = Adam(learning_rate=lr, beta_1=beta_1)
