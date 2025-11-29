@@ -419,7 +419,7 @@ def train_gan(generator, discriminator, gan, dataset, latent_dim, n_epochs=20, b
 
 latent_dim = 256
 discriminator, generator, gan = build_gan(dataset.shape[1:], latent_dim, filters=128)
-dataset_scaled = load_real_samples(scale=True)
+dataset_scaled = load_real_samples("/data/s4561341/cats/",scale=True)
 
 train_gan(generator, discriminator, gan, dataset_scaled, latent_dim, n_epochs=20)
 
