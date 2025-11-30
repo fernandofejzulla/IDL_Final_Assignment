@@ -320,44 +320,32 @@ for epoch in range(20):
     latent_vectors = np.random.randn(9, latent_dim) # Generate 9 random points in the latent space
     images = decoder(latent_vectors / coefficient)  # Feed the vectors scaled by the coefficient to the model
     grid_plot(images, epoch, name='VAE generated images (randomly sampled from the latent space)', n=3, save=True, model_name="vae")
+    
+    if epoch==19:
+        point_a = np.random.randn(1, latent_dim)
+        point_b = np.random.randn(1, latent_dim)
+        point_interp = (point_a + point_b) / 2.0
+        latent_batch = np.vstack([point_a, point_interp, point_b])
+        generated_images = decoder(latent_batch / coefficient)
+        generated_images = decoder(latent_batch / coefficient)
+        plt.figure(figsize=(12, 4))
+        titles = ["Random Point A", "Interpolation (A+B)/2", "Random Point B"]
+
+        for i in range(3):
+            plt.subplot(1, 3, i + 1)
+            plt.imshow(generated_images[i])
+            plt.title(titles[i])
+            plt.axis('off')
+
+        # Save the result
+        os.makedirs('results/vae', exist_ok=True)
+        plt.savefig('results/vae/interpolation_result.png')
 
 
 # ... (Previous GAN code ends here) ...
 
 # --- NEW TASK: VAE Latent Space Interpolation ---
-print("\n--- Generating Interpolated Images with VAE ---")
 
-# 1. Define VAE parameters (Ensure we use the VAE's latent dim, not GAN's)
-vae_latent_dim = 64 
-coefficient = 6 # Same coefficient used in VAE training loop
-
-# 2. Sample 2 random points in the latent space
-point_a = np.random.randn(1, vae_latent_dim)
-point_b = np.random.randn(1, vae_latent_dim)
-
-# 3. Sample the third point by interpolating between the 2 sampled points (Midpoint)
-point_interp = (point_a + point_b) / 2.0
-
-# 4. Combine into a single batch of 3 vectors
-latent_batch = np.vstack([point_a, point_interp, point_b])
-
-# 5. Generate 3 images with the vae decoder
-# Note: We scale by the coefficient as done during training
-generated_images = decoder(latent_batch / coefficient)
-
-# 6. Visualize and Save
-plt.figure(figsize=(12, 4))
-titles = ["Random Point A", "Interpolation (A+B)/2", "Random Point B"]
-
-for i in range(3):
-    plt.subplot(1, 3, i + 1)
-    plt.imshow(generated_images[i])
-    plt.title(titles[i])
-    plt.axis('off')
-
-# Save the result
-os.makedirs('results/vae', exist_ok=True)
-plt.savefig('results/vae/interpolation_result.png')
 
 """*Note: again, you might experiment with the latent dimensionality, batch size and the architecture of your convolutional nets to see how it affects the generative capabilities of this model.*
 
