@@ -98,7 +98,7 @@ def load_real_samples(image_dir, scale=False, img_size=64, limit=20000):
     return X / 255.0
 
 # We will use this function to display the output of our models throughout this notebook
-def grid_plot(images, epoch='', name='', n=3, save=False, scale=False):
+def grid_plot(images, epoch='', name='', n=3, save=False, scale=False,model_name="vae"):
     if scale:
         images = (images + 1) / 2.0
     for index in range(n * n):
@@ -108,7 +108,7 @@ def grid_plot(images, epoch='', name='', n=3, save=False, scale=False):
     fig = plt.gcf()
     fig.suptitle(name + '  '+ str(epoch), fontsize=14)
     if save:
-        filename = 'results/generated_plot_e%03d_f.png' % (epoch+1)
+        filename = f'results/{model_name}/generated_plot_e%03d_f.png' % (epoch+1)
         plt.savefig(filename)
         plt.close()
     
@@ -319,7 +319,7 @@ for epoch in range(20):
     coefficient = 6                                 # You can tweak this coefficient to increase/decrease the std of the sampled vectors
     latent_vectors = np.random.randn(9, latent_dim) # Generate 9 random points in the latent space
     images = decoder(latent_vectors / coefficient)  # Feed the vectors scaled by the coefficient to the model
-    grid_plot(images, epoch, name='VAE generated images (randomly sampled from the latent space)', n=3, save=True)
+    grid_plot(images, epoch, name='VAE generated images (randomly sampled from the latent space)', n=3, save=True, model_name="vae")
 
 """*Note: again, you might experiment with the latent dimensionality, batch size and the architecture of your convolutional nets to see how it affects the generative capabilities of this model.*
 
@@ -410,7 +410,7 @@ def train_gan(generator, discriminator, gan, dataset, latent_dim, n_epochs=20, b
         # Generate and visualize after each epoch
         noise = tf.random.normal(shape=(16, latent_dim))
         generated_images = generator(noise, training=False)
-        grid_plot(generated_images.numpy(), epoch, name='Generated Images', n=3)
+        grid_plot(generated_images.numpy(), epoch, name='Generated Images', n=3, save=True,model_name="gan")
 
         # Clear backend session to free memory
         tf.keras.backend.clear_session()
