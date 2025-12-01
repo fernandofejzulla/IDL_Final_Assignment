@@ -309,8 +309,8 @@ def build_vae(data_shape, latent_dim, filters=128):
 
 # Training the VAE model
 
-latent_dim = 64
-encoder, decoder, vae = build_vae(dataset.shape[1:], latent_dim, filters=64)
+latent_dim = 128
+encoder, decoder, vae = build_vae(dataset.shape[1:], latent_dim, filters=128)
 
 for epoch in range(20):
     vae.fit(x=dataset, y=dataset, epochs=1, batch_size=8)
