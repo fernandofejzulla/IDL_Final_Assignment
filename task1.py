@@ -114,8 +114,6 @@ def grid_plot(images, epoch='', name='', n=3, save=False, scale=False,model_name
     
 
 
-
-
 dataset = load_real_samples("/data/s4561341/cats/")
 grid_plot(dataset[np.random.randint(0, 1000, 9)], name='Fliqr dataset (64x64x3)', n=3)
 
@@ -216,17 +214,17 @@ cae = build_convolutional_autoencoder(image_size, latent_dim, num_filters)
 
 
 ## Training the Convolutional autoencoder to reconstruct images
-for epoch in range(50):
-    print('\nEpoch: ', epoch)
+# for epoch in range(50):
+#     print('\nEpoch: ', epoch)
 
-    # Note that (X=y) when training autoencoders!
-    # In this case we only care about qualitative performance, we don't split into train/test sets
-    cae.fit(x=dataset, y=dataset, epochs=1, batch_size=64)
+#     # Note that (X=y) when training autoencoders!
+#     # In this case we only care about qualitative performance, we don't split into train/test sets
+#     cae.fit(x=dataset, y=dataset, epochs=1, batch_size=64)
 
-    samples = dataset[:9]
-    reconstructed = cae.predict(samples)
-    grid_plot(samples, epoch, name='Original', n=3, save=True)
-    grid_plot(reconstructed, epoch, name='Reconstructed', n=3, save=True)
+#     samples = dataset[:9]
+#     reconstructed = cae.predict(samples)
+#     grid_plot(samples, epoch, name='Original', n=3, save=True)
+#     grid_plot(reconstructed, epoch, name='Reconstructed', n=3, save=True)
 
 """*Note: You may experiment with the latent dimensionality and number of filters in your convolutional network to see how it affects the reconstruction quality. Remember that this also affects the size of the model and time it takes to train.*
 
@@ -309,42 +307,41 @@ def build_vae(data_shape, latent_dim, filters=128):
 
 # Training the VAE model
 
-latent_dim = 128
-encoder, decoder, vae = build_vae(dataset.shape[1:], latent_dim, filters=128)
+latent_dims = [128,256]
+filters = [64, 128]
 
-for epoch in range(20):
-    vae.fit(x=dataset, y=dataset, epochs=1, batch_size=8)
+for latent_dim in latent_dims:
+    for filter in filters:
+        encoder, decoder, vae = build_vae(dataset.shape[1:], latent_dim=latent_dim, filters=filter)
+        for epoch in range(20):
+            vae.fit(x=dataset, y=dataset, epochs=1, batch_size=8)
 
-    # Generate random vectors that we will use to sample from the learned latent space
-    coefficient = 6                                 # You can tweak this coefficient to increase/decrease the std of the sampled vectors
-    latent_vectors = np.random.randn(9, latent_dim) # Generate 9 random points in the latent space
-    images = decoder(latent_vectors / coefficient)  # Feed the vectors scaled by the coefficient to the model
-    grid_plot(images, epoch, name='VAE generated images (randomly sampled from the latent space)', n=3, save=True, model_name="vae")
-    
-    if epoch==19:
-        point_a = np.random.randn(1, latent_dim)
-        point_b = np.random.randn(1, latent_dim)
-        point_interp = (point_a + point_b) / 2.0
-        latent_batch = np.vstack([point_a, point_interp, point_b])
-        generated_images = decoder(latent_batch / coefficient)
-        generated_images = decoder(latent_batch / coefficient)
-        plt.figure(figsize=(12, 4))
-        titles = ["Random Point A", "Interpolation (A+B)/2", "Random Point B"]
+            # Generate random vectors that we will use to sample from the learned latent space
+            coefficient = 6                                 # You can tweak this coefficient to increase/decrease the std of the sampled vectors
+            latent_vectors = np.random.randn(9, latent_dim) # Generate 9 random points in the latent space
+            images = decoder(latent_vectors / coefficient)  # Feed the vectors scaled by the coefficient to the model
+            grid_plot(images, epoch, name='VAE generated images (randomly sampled from the latent space)', n=3, save=True, model_name="vae")
+            
+            if epoch==19:
+                point_a = np.random.randn(1, latent_dim)
+                point_b = np.random.randn(1, latent_dim)
+                point_interp = (point_a + point_b) / 2.0
+                latent_batch = np.vstack([point_a, point_interp, point_b])
+                generated_images = decoder(latent_batch / coefficient)
+                generated_images = decoder(latent_batch / coefficient)
+                plt.figure(figsize=(12, 4))
+                titles = ["Random Point A", "Interpolation (A+B)/2", "Random Point B"]
 
-        for i in range(3):
-            plt.subplot(1, 3, i + 1)
-            plt.imshow(generated_images[i])
-            plt.title(titles[i])
-            plt.axis('off')
+                for i in range(3):
+                    plt.subplot(1, 3, i + 1)
+                    plt.imshow(generated_images[i])
+                    plt.title(titles[i])
+                    plt.axis('off')
 
-        # Save the result
-        os.makedirs('results/vae', exist_ok=True)
-        plt.savefig('results/vae/interpolation_result.png')
+                # Save the result
+                os.makedirs('results/vae', exist_ok=True)
+                plt.savefig(f'results/vae/vae_interpolation_latent{latent_dim}_filter{filter}.png')
 
-
-# ... (Previous GAN code ends here) ...
-
-# --- NEW TASK: VAE Latent Space Interpolation ---
 
 
 """*Note: again, you might experiment with the latent dimensionality, batch size and the architecture of your convolutional nets to see how it affects the generative capabilities of this model.*
@@ -436,19 +433,63 @@ def train_gan(generator, discriminator, gan, dataset, latent_dim, n_epochs=20, b
         # Generate and visualize after each epoch
         noise = tf.random.normal(shape=(16, latent_dim))
         generated_images = generator(noise, training=False)
-        grid_plot(generated_images.numpy(), epoch, name='Generated Images', n=3, save=True,model_name="gan")
+        grid_plot(generated_images.numpy(), epoch, scale=True, name='Generated Images', n=3, save=True,model_name="gan")
+
 
         # Clear backend session to free memory
         tf.keras.backend.clear_session()
 
 ## Build and train the model (need around 10 epochs to start seeing some results)
 
-latent_dim = 256
+latent_dims = [256,512]
+batch_sizes = [64, 128]
 discriminator, generator, gan = build_gan(dataset.shape[1:], latent_dim, filters=128)
 dataset_scaled = load_real_samples("/data/s4561341/cats/",scale=True)
 
-train_gan(generator, discriminator, gan, dataset_scaled, latent_dim, n_epochs=20)
 
-"""*Note: the samples generated by small GANs are more diverse, when compared to VAEs, however some samples might look strange and do not resemble the data the model was trained on."""
+for laten_dim in latent_dims:
+    for batch_size in batch_sizes:
+        train_gan(generator, discriminator, gan, dataset_scaled, latent_dim, n_epochs=20, batch_size=batch_size)
 
-# Your code
+
+        # 1. Sample 2 random points in the latent space
+        # Note: GANs typically use a Gaussian distribution (normal) for the latent space
+        point_a = tf.random.normal(shape=(1, latent_dim))
+        point_b = tf.random.normal(shape=(1, latent_dim))
+
+        # 2. Interpolate the third point between those 2 points (Midpoint)
+        point_interp = (point_a + point_b) / 2.0
+
+        # 3. Combine into a single batch of 3 vectors
+        latent_batch = tf.concat([point_a, point_interp, point_b], axis=0)
+
+        # 4. Generate 3 images with those 3 points
+        # training=False is important to ensure batch norm layers behave correctly for inference
+        generated_images = generator(latent_batch, training=False)
+
+        # 5. Visualize and Save
+        plt.figure(figsize=(12, 4))
+        titles = ["Random Point A", "Interpolation (A+B)/2", "Random Point B"]
+
+        for i in range(3):
+            plt.subplot(1, 3, i + 1)
+            
+            # Rescale GAN output from [-1, 1] to [0, 1] for matplotlib
+            img = (generated_images[i] + 1) / 2.0
+            
+            # Clip values just in case they fall slightly outside [0, 1]
+            img = tf.clip_by_value(img, 0.0, 1.0)
+            
+            plt.imshow(img)
+            plt.title(titles[i])
+            plt.axis('off')
+
+        # Save the result
+        output_dir = 'results/gan'
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, f'gan_interpolation_latent{laten_dim}_batch{batch_size}.png')
+
+        plt.savefig(output_path)
+        plt.close()
+
+        print(f"GAN interpolation image saved to: {output_path}")
