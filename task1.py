@@ -317,7 +317,7 @@ for latent_dim in latent_dims:
             vae.fit(x=dataset, y=dataset, epochs=1, batch_size=8)
 
             # Generate random vectors that we will use to sample from the learned latent space
-            coefficient = 6                                 # You can tweak this coefficient to increase/decrease the std of the sampled vectors
+            coefficient = 3                               # You can tweak this coefficient to increase/decrease the std of the sampled vectors
             latent_vectors = np.random.randn(9, latent_dim) # Generate 9 random points in the latent space
             images = decoder(latent_vectors / coefficient)  # Feed the vectors scaled by the coefficient to the model
             grid_plot(images, epoch, name='VAE generated images (randomly sampled from the latent space)', n=3, save=True, model_name="vae")
@@ -441,55 +441,29 @@ def train_gan(generator, discriminator, gan, dataset, latent_dim, n_epochs=20, b
 
 ## Build and train the model (need around 10 epochs to start seeing some results)
 
-latent_dims = [256,512]
+latent_dims = [256, 512]
 batch_sizes = [64, 128]
-discriminator, generator, gan = build_gan(dataset.shape[1:], latent_dim, filters=128)
-dataset_scaled = load_real_samples("/data/s4561341/cats/",scale=True)
 
+dataset_scaled = load_real_samples("/data/s4561341/cats/", scale=True)
 
-for laten_dim in latent_dims:
+for latent_dim in latent_dims:
     for batch_size in batch_sizes:
-        train_gan(generator, discriminator, gan, dataset_scaled, latent_dim, n_epochs=20, batch_size=batch_size)
 
+        # Build a fresh GAN for every experiment
+        discriminator, generator, gan = build_gan(dataset_scaled.shape[1:], latent_dim, filters=128)
 
-        # 1. Sample 2 random points in the latent space
-        # Note: GANs typically use a Gaussian distribution (normal) for the latent space
-        point_a = tf.random.normal(shape=(1, latent_dim))
-        point_b = tf.random.normal(shape=(1, latent_dim))
+        # Train
+        train_gan(generator, discriminator, gan, dataset_scaled, latent_dim, 
+                  n_epochs=20, batch_size=batch_size)
 
-        # 2. Interpolate the third point between those 2 points (Midpoint)
+        # Interpolation
+        point_a = tf.random.normal((1, latent_dim))
+        point_b = tf.random.normal((1, latent_dim))
         point_interp = (point_a + point_b) / 2.0
 
-        # 3. Combine into a single batch of 3 vectors
-        latent_batch = tf.concat([point_a, point_interp, point_b], axis=0)
+        latent_batch = tf.concat([point_a, point_interp, point_b], 0)
+        generated = generator(latent_batch, training=False)
 
-        # 4. Generate 3 images with those 3 points
-        # training=False is important to ensure batch norm layers behave correctly for inference
-        generated_images = generator(latent_batch, training=False)
+        imgs = (generated + 1) / 2.0
+        imgs = tf.clip_by_value(imgs, 0, 1)
 
-        # 5. Visualize and Save
-        plt.figure(figsize=(12, 4))
-        titles = ["Random Point A", "Interpolation (A+B)/2", "Random Point B"]
-
-        for i in range(3):
-            plt.subplot(1, 3, i + 1)
-            
-            # Rescale GAN output from [-1, 1] to [0, 1] for matplotlib
-            img = (generated_images[i] + 1) / 2.0
-            
-            # Clip values just in case they fall slightly outside [0, 1]
-            img = tf.clip_by_value(img, 0.0, 1.0)
-            
-            plt.imshow(img)
-            plt.title(titles[i])
-            plt.axis('off')
-
-        # Save the result
-        output_dir = 'results/gan'
-        os.makedirs(output_dir, exist_ok=True)
-        output_path = os.path.join(output_dir, f'gan_interpolation_latent{laten_dim}_batch{batch_size}.png')
-
-        plt.savefig(output_path)
-        plt.close()
-
-        print(f"GAN interpolation image saved to: {output_path}")
