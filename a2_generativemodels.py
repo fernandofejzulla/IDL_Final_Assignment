@@ -388,7 +388,11 @@ def get_batch(generator, dataset, batch_size=64):
 
     # Combine
     X = tf.concat([real_data, fake_data], axis=0)
-    y = tf.concat([tf.ones((half_batch, 1)), tf.zeros((half_batch, 1))], axis=0)
+    #y = tf.concat([tf.ones((half_batch, 1)), tf.zeros((half_batch, 1))], axis=0)
+    y = tf.concat([tf.ones((half_batch, 1)) * 0.9, tf.zeros((half_batch, 1))], axis=0) 
+    
+    # Add noise to labels (optional but helpful)
+    y += 0.05 * tf.random.uniform(tf.shape(y))
 
     return X, y
 
