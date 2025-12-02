@@ -75,7 +75,7 @@ def load_real_samples(path, limit=20000, scale=False):
     # --- Case 2: Load from Directory of PNGs ---
     else:
         # Handle path ending with / or not, or wildcards
-        search_path = os.path.join(path, '*.png') if os.path.isdir(path) else path
+        search_path = os.path.join(path, '*.jpg') if os.path.isdir(path) else path
         files = glob.glob(search_path)[:limit]
         
         if not files:
