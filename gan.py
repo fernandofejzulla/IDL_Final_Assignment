@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import cv2
 import os
-import torchvision.utils as vutils
+# import torchvision.utils as vutils # No longer needed
 import matplotlib.pyplot as plt
 
 # --- 1. User's Data Loading Function (Unchanged logic) ---
@@ -140,7 +140,7 @@ def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
     
-    img_dir = "data/s4561341/cats/"
+    img_dir = "data/s4561341/cats/" # <--- UPDATE THIS
     latent_dim = 100
     batch_size = 64
     lr = 0.0002
@@ -231,7 +231,25 @@ def train():
         
         # Save sample image occasionally
         if epoch % 10 == 0:
-            vutils.save_image(fake_imgs.data[:16], f"epoch_{epoch}.png", nrow=4)
+            # vutils.save_image(fake_imgs.data[:16], f"epoch_{epoch}.png", nrow=4)
+            
+            # Using Matplotlib to save a 4x4 grid
+            with torch.no_grad():
+                # Get first 16 images
+                samples = fake_imgs.data[:16].cpu()
+                # Permute dimensions: (N, C, H, W) -> (N, H, W, C) for Matplotlib
+                samples = samples.permute(0, 2, 3, 1).numpy()
+                
+                fig, axes = plt.subplots(4, 4, figsize=(8, 8))
+                for idx, ax in enumerate(axes.flat):
+                    if idx < len(samples):
+                        ax.imshow(samples[idx])
+                    ax.axis('off')
+                
+                plt.suptitle(f"Epoch {epoch}")
+                plt.tight_layout()
+                plt.savefig(f"epoch_{epoch}.png")
+                plt.close(fig)
     
     # Plot losses
     plt.figure(figsize=(10, 5))
