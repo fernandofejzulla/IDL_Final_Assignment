@@ -140,7 +140,7 @@ def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
     
-    img_dir = "data/s4561341/cats/" # <--- UPDATE THIS
+    img_dir = "/data/s4561341/cats/" # <--- UPDATE THIS
     latent_dim = 100
     batch_size = 64
     lr = 0.0002
