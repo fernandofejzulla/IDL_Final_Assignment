@@ -134,7 +134,7 @@ def train():
     
     lrG = 0.0002
     lrD = 0.00002
-    epochs = 100
+    epochs = 150
 
     # 1. Load Data ONCE
     print("Loading data...")
