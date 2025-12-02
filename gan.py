@@ -141,10 +141,10 @@ def train():
     print(f"Device: {device}")
     
     img_dir = "/data/s4561341/cats/" # <--- UPDATE THIS
-    latent_dim = 100
+    latent_dim = 256
     batch_size = 64
     lr = 0.0002
-    epochs = 50
+    epochs = 100
 
     # 1. Load Data
     # Important: Keras 'sigmoid' output implies [0,1] data. So scale=False (default).
