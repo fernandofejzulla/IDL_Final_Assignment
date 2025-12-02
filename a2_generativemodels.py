@@ -413,7 +413,7 @@ def train_gan(generator, discriminator, gan, dataset, latent_dim, n_epochs=20, b
         # Generate and visualize after each epoch
         noise = tf.random.normal(shape=(16, latent_dim))
         generated_images = generator(noise, training=False)
-        grid_plot(generated_images.numpy(), epoch, name='GAN Generated Images', n=3, save=True)
+        grid_plot(generated_images.numpy(), epoch, name='GAN Generated Images', n=3, save=True, scale=True)
 
         # Clear backend session to free memory
         tf.keras.backend.clear_session()
