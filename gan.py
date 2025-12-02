@@ -128,6 +128,10 @@ def train():
     
     img_dir = "/data/s4561341/cats/" 
     
+    # Check/Create results directory to prevent crash
+    if not os.path.exists("results"):
+        os.makedirs("results")
+
     # Configurations to iterate over
     latent_dims_list = [256,512]
     batch_sizes_list = [64, 128]
@@ -260,6 +264,37 @@ def train():
             plt.savefig(f"loss_plot_{config_name}.png")
             plt.close()
             print(f"Saved loss plot for {config_name}")
+
+            # --- INTERPOLATION STEP ---
+            print(f"Generating interpolation for {config_name}...")
+            with torch.no_grad():
+                # 1. Draw 2 latent points
+                p1 = torch.randn(1, latent_dim).to(device)
+                p2 = torch.randn(1, latent_dim).to(device)
+
+                # 2. Interpolate (Midpoint) to get 3rd point
+                p3 = (p1 + p2) / 2.0
+
+                # 3. Generate 3 images: [Point 1, Midpoint, Point 2]
+                z_input = torch.cat([p1, p3, p2], dim=0)
+                generated_imgs = netG(z_input).cpu()
+                
+                # Convert to numpy for plotting (N, H, W, C)
+                display_imgs = generated_imgs.permute(0, 2, 3, 1).numpy()
+
+                # Plot
+                fig, axs = plt.subplots(1, 3, figsize=(12, 4))
+                titles = ["Point 1", "Midpoint", "Point 2"]
+
+                for i in range(3):
+                    axs[i].imshow(display_imgs[i])
+                    axs[i].set_title(titles[i])
+                    axs[i].axis('off')
+                
+                plt.tight_layout()
+                plt.savefig(f"results/interpolation_{config_name}.png")
+                plt.close(fig)
+                print(f"Saved interpolation_{config_name}.png")
 
 if __name__ == "__main__":
     train()
