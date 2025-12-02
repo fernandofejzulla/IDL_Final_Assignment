@@ -129,7 +129,7 @@ def train():
     img_dir = "/data/s4561341/cats/" 
     
     # Configurations to iterate over
-    latent_dims_list = [100, 128]
+    latent_dims_list = [256,512]
     batch_sizes_list = [64, 128]
     
     lrG = 0.0002
