@@ -58,51 +58,60 @@ import numpy as np
 import glob
 import os
 from PIL import Image
+import numpy as np
+import glob
+import os
+from PIL import Image
+from tqdm import tqdm # Optional: for a progress bar
 
-def load_real_samples(path, limit=20000, scale=False):
+def create_npy_dataset(source_folder, output_filename, target_size=(64, 64)):
     """
-    Args:
-        path (str): Path to .npy file OR directory containing .png files
-        limit (int): Max number of samples to load.
-        scale (bool): If True, scales range to [-1, 1]. If False, [0, 1].
+    Reads all JPG images from source_folder, resizes them, and saves
+    them into a single .npy file.
     """
+    # 1. Find all JPG files
+    search_path = os.path.join(source_folder, '*.jpg')
+    files = glob.glob(search_path)
     
-    # --- Case 1: Load from .npy file ---
-    if os.path.isfile(path) and path.endswith('.npy'):
-        print(f"Loading .npy file from {path}...")
-        X = np.load(path, fix_imports=True, encoding='latin1')[:limit]
+    if not files:
+        print(f"No .jpg files found in {source_folder}")
+        return
 
-    # --- Case 2: Load from Directory of PNGs ---
-    else:
-        # Handle path ending with / or not, or wildcards
-        search_path = os.path.join(path, '*.jpg') if os.path.isdir(path) else path
-        files = glob.glob(search_path)[:limit]
-        
-        if not files:
-            raise ValueError(f"No PNG files found in {path}")
+    print(f"Found {len(files)} images. Processing...")
 
-        count = len(files)
-        print(f"Loading {count} PNG images from {path}...")
-        
-        # Pre-allocate memory: (N, 64, 64, 3)
-        # We assume 3 channels (RGB). If your images are grayscale, change 3 to 1.
-        X = np.zeros((count, 64, 64, 3), dtype='uint8')
-        
-        for i, filename in enumerate(files):
-            # Open and force to RGB (drops Alpha channel if present)
-            img = Image.open(filename).convert('RGB')
-            X[i] = np.asarray(img)
+    # 2. Pre-allocate array for efficiency
+    # Shape: (Num_Images, Height, Width, Channels)
+    dataset = np.zeros((len(files), target_size[0], target_size[1], 3), dtype='uint8')
 
-    # --- Normalize / Scale ---
-    X = X.astype('float32')
+    # 3. Loop through files and process
+    for i, file_path in enumerate(tqdm(files)):
+        try:
+            # Open image
+            img = Image.open(file_path)
+            
+            # Convert to RGB (handles grayscale or CMYK issues)
+            img = img.convert('RGB')
+            
+            # Resize to 64x64 (Crucial for GAN consistency)
+            img = img.resize(target_size)
+            
+            # Store in array
+            dataset[i] = np.asarray(img)
+            
+        except Exception as e:
+            print(f"Warning: Could not process {file_path}: {e}")
 
-    if scale:
-        # Scales [0, 255] -> [-1, 1]
-        X = (X - 127.5) * 2
-    
-    # Final division to get desired range (either [0,1] or [-1,1])
-    return X / 255.0
+    # 4. Save to .npy file
+    print(f"Saving dataset to {output_filename}...")
+    np.save(output_filename, dataset)
+    print("Done! File saved.")
 
+# --- usage ---
+# Run this ONCE to create the file
+create_npy_dataset(
+    source_folder='/data/s4561341/cats', 
+    output_filename='/data/s4561341/cats_64x64.npy'
+)
 # We will use this function to display the output of our models throughout this notebook
 def grid_plot(images, epoch='', name='', n=3, save=False, scale=False):
     if scale:
