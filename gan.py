@@ -133,7 +133,7 @@ def train():
         os.makedirs("results")
 
     # Configurations to iterate over
-    latent_dims_list = [256,512]
+    latent_dims_list = [128, 256]
     batch_sizes_list = [64, 128]
     
     lrG = 0.0002
