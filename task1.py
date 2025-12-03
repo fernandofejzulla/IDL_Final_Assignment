@@ -308,12 +308,12 @@ def build_vae(data_shape, latent_dim, filters=128):
 # Training the VAE model
 
 latent_dims = [128,256]
-filters = [64, 128]
+filters = [128]
 
 for latent_dim in latent_dims:
     for filter in filters:
         encoder, decoder, vae = build_vae(dataset.shape[1:], latent_dim=latent_dim, filters=filter)
-        for epoch in range(20):
+        for epoch in range(150):
             vae.fit(x=dataset, y=dataset, epochs=1, batch_size=8)
 
             # Generate random vectors that we will use to sample from the learned latent space
@@ -363,107 +363,107 @@ The **generator** model takes random input values (noise) and transforms them in
 Over the course of many training iterations, the weights and biases in the discriminator and the generator are trained through backpropagation. The discriminator learns to tell "real" images of handwritten digits apart from "fake" images created by the generator. At the same time, the generator uses feedback from the discriminator to learn how to produce convincing images that the discriminator can't distinguish from real images.
 """
 
-from keras.optimizers import Adam
+# from keras.optimizers import Adam
 
 
-def build_gan(data_shape, latent_dim, filters=128, lr=0.0002, beta_1=0.5):
-    optimizer = Adam(learning_rate=lr, beta_1=beta_1)
+# def build_gan(data_shape, latent_dim, filters=128, lr=0.0002, beta_1=0.5):
+#     optimizer = Adam(learning_rate=lr, beta_1=beta_1)
 
-    # Usually thew GAN generator has tanh activation function in the output layer
-    generator = build_deconv_net(latent_dim, activation_out='tanh', filters=filters)
+#     # Usually thew GAN generator has tanh activation function in the output layer
+#     generator = build_deconv_net(latent_dim, activation_out='tanh', filters=filters)
 
-    # Build and compile the discriminator
-    discriminator = build_conv_net(in_shape=data_shape, out_shape=1, filters=filters) # Single output for binary classification
-    discriminator.compile(loss='binary_crossentropy', optimizer=optimizer)
+#     # Build and compile the discriminator
+#     discriminator = build_conv_net(in_shape=data_shape, out_shape=1, filters=filters) # Single output for binary classification
+#     discriminator.compile(loss='binary_crossentropy', optimizer=optimizer)
 
-    # End-to-end GAN model for training the generator
-    discriminator.trainable = False
-    true_fake_prediction = discriminator(generator.output)
-    GAN = tf.keras.Model(inputs=generator.input, outputs=true_fake_prediction)
-    GAN.compile(loss='binary_crossentropy', optimizer=optimizer)
+#     # End-to-end GAN model for training the generator
+#     discriminator.trainable = False
+#     true_fake_prediction = discriminator(generator.output)
+#     GAN = tf.keras.Model(inputs=generator.input, outputs=true_fake_prediction)
+#     GAN.compile(loss='binary_crossentropy', optimizer=optimizer)
 
-    return discriminator, generator, GAN
+#     return discriminator, generator, GAN
 
-"""### Definining custom functions for training your GANs
+# """### Definining custom functions for training your GANs
 
----
-
-
-
-"""
-
-def get_batch(generator, dataset, batch_size=64):
-    """
-    Fetches one batch of data and ensures no memory leaks by using TensorFlow operations.
-    """
-    half_batch = batch_size // 2
-
-    # Generate fake images
-    latent_vectors = tf.random.normal(shape=(half_batch, latent_dim))
-    fake_data = generator(latent_vectors, training=False)
-
-    # Select real images
-    idx = np.random.randint(0, dataset.shape[0], half_batch)
-    real_data = dataset[idx]
-
-    # Combine
-    X = tf.concat([real_data, fake_data], axis=0)
-    y = tf.concat([tf.ones((half_batch, 1)), tf.zeros((half_batch, 1))], axis=0)
-
-    return X, y
+# ---
 
 
-def train_gan(generator, discriminator, gan, dataset, latent_dim, n_epochs=20, batch_size=64):
-    """
-    Train the GAN with memory-efficient updates and clear session management.
-    """
-    batches_per_epoch = dataset.shape[0] // batch_size
 
-    for epoch in range(n_epochs):
-        for batch in tqdm(range(batches_per_epoch)):
-            # Train Discriminator
-            X, y = get_batch(generator, dataset, batch_size)
-            discriminator_loss = discriminator.train_on_batch(X, y)
+# """
 
-            # Train Generator
-            latent_vectors = tf.random.normal(shape=(batch_size, latent_dim))
-            y_gan = tf.ones((batch_size, 1))
-            generator_loss = gan.train_on_batch(latent_vectors, y_gan)
+# def get_batch(generator, dataset, batch_size=64):
+#     """
+#     Fetches one batch of data and ensures no memory leaks by using TensorFlow operations.
+#     """
+#     half_batch = batch_size // 2
 
-        # Generate and visualize after each epoch
-        noise = tf.random.normal(shape=(16, latent_dim))
-        generated_images = generator(noise, training=False)
-        grid_plot(generated_images.numpy(), epoch, scale=True, name='Generated Images', n=3, save=True,model_name="gan")
+#     # Generate fake images
+#     latent_vectors = tf.random.normal(shape=(half_batch, latent_dim))
+#     fake_data = generator(latent_vectors, training=False)
+
+#     # Select real images
+#     idx = np.random.randint(0, dataset.shape[0], half_batch)
+#     real_data = dataset[idx]
+
+#     # Combine
+#     X = tf.concat([real_data, fake_data], axis=0)
+#     y = tf.concat([tf.ones((half_batch, 1)), tf.zeros((half_batch, 1))], axis=0)
+
+#     return X, y
 
 
-        # Clear backend session to free memory
-        tf.keras.backend.clear_session()
+# def train_gan(generator, discriminator, gan, dataset, latent_dim, n_epochs=20, batch_size=64):
+#     """
+#     Train the GAN with memory-efficient updates and clear session management.
+#     """
+#     batches_per_epoch = dataset.shape[0] // batch_size
 
-## Build and train the model (need around 10 epochs to start seeing some results)
+#     for epoch in range(n_epochs):
+#         for batch in tqdm(range(batches_per_epoch)):
+#             # Train Discriminator
+#             X, y = get_batch(generator, dataset, batch_size)
+#             discriminator_loss = discriminator.train_on_batch(X, y)
 
-latent_dims = [256, 512]
-batch_sizes = [64, 128]
+#             # Train Generator
+#             latent_vectors = tf.random.normal(shape=(batch_size, latent_dim))
+#             y_gan = tf.ones((batch_size, 1))
+#             generator_loss = gan.train_on_batch(latent_vectors, y_gan)
 
-dataset_scaled = load_real_samples("/data/s4561341/cats/", scale=True)
+#         # Generate and visualize after each epoch
+#         noise = tf.random.normal(shape=(16, latent_dim))
+#         generated_images = generator(noise, training=False)
+#         grid_plot(generated_images.numpy(), epoch, scale=True, name='Generated Images', n=3, save=True,model_name="gan")
 
-for latent_dim in latent_dims:
-    for batch_size in batch_sizes:
 
-        # Build a fresh GAN for every experiment
-        discriminator, generator, gan = build_gan(dataset_scaled.shape[1:], latent_dim, filters=128)
+#         # Clear backend session to free memory
+#         tf.keras.backend.clear_session()
 
-        # Train
-        train_gan(generator, discriminator, gan, dataset_scaled, latent_dim, 
-                  n_epochs=20, batch_size=batch_size)
+# ## Build and train the model (need around 10 epochs to start seeing some results)
 
-        # Interpolation
-        point_a = tf.random.normal((1, latent_dim))
-        point_b = tf.random.normal((1, latent_dim))
-        point_interp = (point_a + point_b) / 2.0
+# latent_dims = [256, 512]
+# batch_sizes = [64, 128]
 
-        latent_batch = tf.concat([point_a, point_interp, point_b], 0)
-        generated = generator(latent_batch, training=False)
+# dataset_scaled = load_real_samples("/data/s4561341/cats/", scale=True)
 
-        imgs = (generated + 1) / 2.0
-        imgs = tf.clip_by_value(imgs, 0, 1)
+# for latent_dim in latent_dims:
+#     for batch_size in batch_sizes:
+
+#         # Build a fresh GAN for every experiment
+#         discriminator, generator, gan = build_gan(dataset_scaled.shape[1:], latent_dim, filters=128)
+
+#         # Train
+#         train_gan(generator, discriminator, gan, dataset_scaled, latent_dim, 
+#                   n_epochs=20, batch_size=batch_size)
+
+#         # Interpolation
+#         point_a = tf.random.normal((1, latent_dim))
+#         point_b = tf.random.normal((1, latent_dim))
+#         point_interp = (point_a + point_b) / 2.0
+
+#         latent_batch = tf.concat([point_a, point_interp, point_b], 0)
+#         generated = generator(latent_batch, training=False)
+
+#         imgs = (generated + 1) / 2.0
+#         imgs = tf.clip_by_value(imgs, 0, 1)
 
