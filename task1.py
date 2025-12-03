@@ -332,7 +332,7 @@ for latent_dim in latent_dims:
             loss_history.append(history.history['loss'][0])
 
             # Generate random vectors that we will use to sample from the learned latent space
-            coefficient = 3                               
+            coefficient = 6                               
             latent_vectors = np.random.randn(9, latent_dim) 
             images = decoder(latent_vectors / coefficient) 
             

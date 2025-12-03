@@ -134,7 +134,7 @@ def train():
 
     # Configurations to iterate over
     latent_dims_list = [128, 256]
-    batch_sizes_list = [128]
+    batch_sizes_list = [64, 128]
     
     lrG = 0.0002
     lrD = 0.00002
