@@ -308,7 +308,7 @@ def build_vae(data_shape, latent_dim, filters=128):
 # Training the VAE model
 
 latent_dims = [128,256]
-filters = [128]
+filters = [128,256]
 
 for latent_dim in latent_dims:
     for filter in filters:
