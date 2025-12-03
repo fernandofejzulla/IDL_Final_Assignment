@@ -337,7 +337,7 @@ for latent_dim in latent_dims:
             images = decoder(latent_vectors / coefficient) 
             
             # Save grid plots (only saving every 10 epochs to save disk space/time, optional change)
-            if epoch % 10 == 0 or epoch == 149:
+            if epoch % 10 == 0 or epoch == 99:
                 grid_plot(images, epoch, name=f'VAE Generated (Latent:{latent_dim} Filter:{filter_count})', n=3, save=True, model_name="vae")
             
             # Interpolation experiment at specific epoch
