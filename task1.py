@@ -308,7 +308,7 @@ def build_vae(data_shape, latent_dim, filters=128):
 # Training the VAE model
 # Training the VAE model
 
-latent_dims = [128, 256]
+latent_dims = [64, 128]
 filters = [128, 256]
 
 # Ensure directory exists for saving plots
