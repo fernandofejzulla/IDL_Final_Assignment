@@ -108,7 +108,7 @@ def grid_plot(images, latent_dim, filters,epoch='', name='', n=3, save=False, sc
     fig = plt.gcf()
     fig.suptitle(name + '  '+ str(epoch), fontsize=14)
     if save:
-        filename = f'results/{model_name}/latent{latent_dim}_filters{filters}.png' % (epoch+1)
+        filename = f"results/{model_name}/latent{latent_dim}_filters{filters}_epoch{epoch+1}.png"
         plt.savefig(filename)
         plt.close()
     
