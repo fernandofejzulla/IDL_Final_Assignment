@@ -13,7 +13,7 @@ from scipy.ndimage import rotate
 import tensorflow as tf
 tf.config.run_functions_eagerly(True)
 
-opt = tf.keras.optimizers.Adam(learning_rate=0.001)
+
 # Create plus/minus operand signs
 def generate_images(number_of_images=50, sign='-'):
     blank_images = np.zeros([number_of_images, 28, 28])  # Dimensionality matches the size of MNIST images (28x28)
@@ -181,6 +181,7 @@ def build_text2text_model():
     text2text.add(TimeDistributed(Dense(len(unique_characters), activation='softmax')))
 
     # Next we compile the model using categorical crossentropy as our loss function.
+    opt = tf.keras.optimizers.Adam(learning_rate=0.001)
     text2text.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
     text2text.summary()
 
@@ -264,6 +265,7 @@ def build_text2text_model_deep(hidden_size=256):
     outputs = TimeDistributed(Dense(num_chars, activation='softmax'))(dec)
 
     model = Model(enc_inputs, outputs)
+    opt = tf.keras.optimizers.Adam(learning_rate=0.001)
     model.compile(
         optimizer=opt,
         loss='categorical_crossentropy',
@@ -315,6 +317,7 @@ def build_img2text_model(img_shape, answer_len=3, num_chars=13, hidden_size=256)
     outputs = TimeDistributed(Dense(num_chars, activation='softmax'))(dec)
 
     model = Model(img_inputs, outputs)
+    opt = tf.keras.optimizers.Adam(learning_rate=0.001)
     model.compile(
         optimizer=opt,
         loss='categorical_crossentropy',
@@ -390,6 +393,7 @@ def build_text2img_model_full(query_len,
     outputs = TimeDistributed(Reshape(answer_img_shape))(x)  
 
     model = Model(text_inputs, outputs)
+    opt = tf.keras.optimizers.Adam(learning_rate=0.001)
     model.compile(
         optimizer=opt,
         loss='binary_crossentropy'
@@ -460,6 +464,7 @@ for name, test_size in splits_t2i.items():
     t2i_model = build_text2img_model_full(query_len, num_chars, answer_len, answer_img_shape, hidden_size=256)
     
     # CRITICAL: Re-compile with accuracy so we can plot it!
+    opt = tf.keras.optimizers.Adam(learning_rate=0.001)
     t2i_model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy'])
 
     hist_t2i = t2i_model.fit(Xtr_t2i, ytr_t2i, validation_split=0.1, epochs=50, batch_size=128, callbacks=cb, verbose=1)
@@ -541,6 +546,7 @@ def build_judge_model():
         Dense(128, activation='relu'),
         Dense(len(unique_characters), activation='softmax') # 13 classes
     ])
+    opt = tf.keras.optimizers.Adam(learning_rate=0.001)
     model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
