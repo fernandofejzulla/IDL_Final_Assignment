@@ -184,8 +184,8 @@ def build_text2text_model():
 
     return text2text
 
-
 from sklearn.model_selection import train_test_split
+from tensorflow.keras.callbacks import EarlyStopping
 import numpy as np
 
 def exact_string_text2text(model, X, y_onehot, n_show_wrong=8):
@@ -215,9 +215,9 @@ splits = {
     "10/90": 0.90
 }
 
-history_t2t = {}
-
 results_t2t = {}  
+
+cb = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")]
 
 for name, test_size in splits.items():
 
@@ -239,12 +239,11 @@ for name, test_size in splits.items():
     hist = model.fit(
         Xtr, ytr,
         validation_split=0.1,
-        epochs=50,
+        epochs=12,
         batch_size=128,
+        callbacks=cb,
         verbose=1
     )
-
-    history_t2t[name] = hist.history
 
     # Evaluate (string accuracy)
     acc, preds, trues = exact_string_text2text(model, Xte, yte)
@@ -254,36 +253,6 @@ for name, test_size in splits.items():
 print("\n\n FINAL TEXT→TEXT ACCURACY SUMMARY:")
 for name, acc in results_t2t.items():
     print(f"{name} split → accuracy = {acc:.4f}")
-
-# ---- Plot training/validation accuracy for text→text ----
-plt.figure(figsize=(8, 5))
-for split_name, h in history_t2t.items():
-    epochs = range(1, len(h['accuracy']) + 1)
-    plt.plot(epochs, h['accuracy'], marker='o', label=f'{split_name} train')
-    plt.plot(epochs, h['val_accuracy'], linestyle='--', label=f'{split_name} val')
-plt.xlabel('Epoch')
-plt.ylabel('Accuracy')
-plt.title('Text→Text: training vs validation accuracy for different splits')
-plt.grid(True)
-plt.legend()
-plt.tight_layout()
-plt.savefig('t2t_accuracy_splits.png')
-plt.show()
-
-# ---- Plot training/validation loss for text→text ----
-plt.figure(figsize=(8, 5))
-for split_name, h in history_t2t.items():
-    epochs = range(1, len(h['loss']) + 1)
-    plt.plot(epochs, h['loss'], marker='o', label=f'{split_name} train')
-    plt.plot(epochs, h['val_loss'], linestyle='--', label=f'{split_name} val')
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
-plt.title('Text→Text: training vs validation loss for different splits')
-plt.grid(True)
-plt.legend()
-plt.tight_layout()
-plt.savefig('t2t_loss_splits.png')
-plt.show()
 
 """ Deeper model for text-to-text"""
 
@@ -311,45 +280,34 @@ def build_text2text_model_deep(hidden_size=256):
     )
     return model
 
-
-# ✅ define this ONCE here, not inside the function
-results_t2t_deep = {}
-
 print("\n" + "="*60)
-print("TRAINING DEEP TEXT→TEXT MODELS (extra LSTM layer) – ALL SPLITS")
+print("TRAINING DEEP TEXT→TEXT MODEL (extra LSTM layer) – 50/50 split")
 print("="*60)
 
-for split_name, test_size in splits.items():
-    print(f"\n--- Deep Text→Text split {split_name} ---")
+Xtr_deep, Xte_deep, ytr_deep, yte_deep = train_test_split(
+    X_text_onehot, y_text_onehot,
+    test_size=0.5,
+    random_state=42
+)
 
-    # train/test split for this deep model
-    Xtr_deep, Xte_deep, ytr_deep, yte_deep = train_test_split(
-        X_text_onehot, y_text_onehot,
-        test_size=test_size,
-        random_state=42
-    )
+deep_model = build_text2text_model_deep(hidden_size=256)
 
-    # build fresh deep model
-    deep_model = build_text2text_model_deep(hidden_size=256)
+cb_deep = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")]
 
-    # train
-    hist_deep = deep_model.fit(
-        Xtr_deep, ytr_deep,
-        validation_split=0.1,
-        epochs=50,
-        batch_size=128,
-        verbose=1
-    )
+hist_deep = deep_model.fit(
+    Xtr_deep, ytr_deep,
+    validation_split=0.1,
+    epochs=12,
+    batch_size=128,
+    callbacks=cb_deep,
+    verbose=1
+)
 
-    # evaluate (string accuracy)
-    deep_acc, _, _ = exact_string_text2text(
-        deep_model, Xte_deep, yte_deep, n_show_wrong=5
-    )
+deep_acc, _, _ = exact_string_text2text(
+    deep_model, Xte_deep, yte_deep, n_show_wrong=8
+)
 
-    print(f"Deep text→text string accuracy ({split_name} split): {deep_acc:.4f}")
-
-    # store for Excel
-    results_t2t_deep[split_name] = float(deep_acc)
+print(f"\nDeep text→text string accuracy (50/50 split): {deep_acc:.4f}")
 
 """ Build the image-to-text model"""
 
@@ -373,43 +331,6 @@ def build_img2text_model(img_shape, answer_len=3, num_chars=13, hidden_size=256)
     )
     return model
 
-def show_img2text_examples(model, X, y_onehot, n_examples=3, save_prefix=None):
-    """
-    Show a few MNIST query sequences with true vs predicted text answers.
-    X        : (N, T_query, H, W, 1)
-    y_onehot: (N, T_answer, num_chars)
-    """
-    # Get predicted and true strings
-    preds = model.predict(X, verbose=0)
-    pred_txt = decode_labels(preds)
-    true_txt = decode_labels(y_onehot)
-
-    # Choose random examples
-    idxs = np.random.choice(len(X), size=n_examples, replace=False)
-
-    T_query = X.shape[1]
-
-    for k, idx in enumerate(idxs):
-        fig, axes = plt.subplots(1, T_query, figsize=(3*T_query, 3))
-        fig.suptitle(
-            f"Example {k} – true='{true_txt[idx]}' | pred='{pred_txt[idx]}'",
-            fontsize=12
-        )
-
-        for t in range(T_query):
-            img = X[idx, t]
-            if img.ndim == 3 and img.shape[-1] == 1:
-                img = img[..., 0]
-            axes[t].imshow(img, cmap='gray')
-            axes[t].axis('off')
-            axes[t].set_title(f"t={t}")
-
-        plt.tight_layout()
-        if save_prefix is not None:
-            plt.savefig(f"{save_prefix}_img2text_example{idx}.png")
-        plt.show()
-        plt.close(fig)
-
 X_img = X_img.astype('float32') / 255.0
 
 if X_img.ndim == 4:
@@ -424,9 +345,8 @@ splits = {
     "10/90": 0.90
 }
 
-histories_i2t = {}
-
 results_i2t = {}
+cb = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")] 
 
 #Training
 for name, test_size in splits.items():
@@ -455,15 +375,11 @@ for name, test_size in splits.items():
     hist_i2t = i2t_model.fit(
         Xtr_i2t, ytr_i2t,
         validation_split=0.1,
-        epochs=50,
+        epochs=12,
         batch_size=128,
+        callbacks=cb,
         verbose=1
     )
-
-    print(f"\nImage→Text visual examples for split {name}:")
-    show_img2text_examples(i2t_model, Xte_i2t, yte_i2t, n_examples=3, save_prefix=f"img2text_{name.replace('/', '')}")
-
-    histories_i2t[name] = hist_i2t.history
 
     # Evaluate (string accuracy)
     acc_i2t, preds_i2t, trues_i2t = exact_string_text2text(i2t_model, Xte_i2t, yte_i2t, n_show_wrong=8)
@@ -472,20 +388,6 @@ for name, test_size in splits.items():
 print("\n\n FINAL IMAGE→TEXT ACCURACY SUMMARY:")
 for name, acc in results_i2t.items():
     print(f"{name} split → accuracy = {acc:.4f}")
-
-plt.figure(figsize=(8,5))
-for split_name, h in histories_i2t.items():
-    epochs = range(1, len(h['accuracy']) + 1)
-    plt.plot(epochs, h['accuracy'], marker='o', label=f'{split_name} train')
-    plt.plot(epochs, h['val_accuracy'], linestyle='--', label=f'{split_name} val')
-plt.xlabel('Epoch')
-plt.ylabel('Accuracy')
-plt.title('Image→Text: training vs validation accuracy for different splits')
-plt.grid(True)
-plt.legend()
-plt.tight_layout()
-plt.savefig('i2t_accuracy_splits.png')
-plt.show()
 
 """ Build the text-to-image model"""
 
@@ -563,7 +465,6 @@ def show_text2img_examples(model, X, y_true, n_examples=3, save_prefix=None):
         if save_prefix is not None:
             plt.savefig(f"{save_prefix}_example{k}.png")
         plt.show()
-        plt.close(fig) 
 
 y_img = y_img.astype('float32') / 255.0
 
@@ -580,9 +481,8 @@ splits_t2i = {
     "10/90": 0.90
 }
 
-histories_t2i = {}
-
 results_t2i_loss = {}
+cb = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")]
 
 for name, test_size in splits_t2i.items():
     print("\n" + "="*60)
@@ -606,101 +506,168 @@ for name, test_size in splits_t2i.items():
     hist_t2i = t2i_model.fit(
         Xtr_t2i, ytr_t2i,
         validation_split=0.1,
-        epochs=50,
+        epochs=12,
         batch_size=128,
+        callbacks=cb,
         verbose=1
     )
 
-    histories_t2i[name] = hist_t2i.history
-
     test_loss = t2i_model.evaluate(Xte_t2i, yte_t2i, verbose=0)
     print(f"Test binary crossentropy (pixel-wise) for split {name}: {test_loss:.4f}")
+
     results_t2i_loss[name] = test_loss
 
-    # ---- Visual examples (TEXT→IMAGE ONLY) ----
-    print(f"\nSome visual examples for TEXT→IMAGE, split {name}:")
-    show_text2img_examples(
-        t2i_model,
-        Xte_t2i,
-        yte_t2i,
-        n_examples=3,
-        save_prefix=f"text2img_{name.replace('/', '')}"
-    )
-
+    show_text2img_examples(t2i_model, Xte_t2i, yte_t2i, n_examples=3, save_prefix=None)
 
 print("\n\n FINAL TEXT→IMAGE TEST LOSS SUMMARY:")
 for name, loss in results_t2i_loss.items():
     print(f"{name} split → test loss = {loss:.4f}")
 
-plt.figure(figsize=(8,5))
-for split_name, h in histories_t2i.items():
-    epochs = range(1, len(h['loss']) + 1)
-    plt.plot(epochs, h['loss'], marker='o', label=f'{split_name} train')
-    plt.plot(epochs, h['val_loss'], linestyle='--', label=f'{split_name} val')
-plt.xlabel('Epoch')
-plt.ylabel('Binary cross-entropy loss')
-plt.title('Text→Image: training vs validation loss for different splits')
-plt.grid(True)
-plt.legend()
-plt.tight_layout()
-plt.savefig('t2i_loss_splits.png')
-plt.show()
 
 
-import pandas as pd
-#table summarizing all results
-summary_rows = []
+# ==============================================================================
+# OPTIONAL TASK: Judge/Evaluator Model for Text-to-Image
+# ==============================================================================
 
-# 1) Baseline text→text
-for split_name, acc in results_t2t.items():
-    summary_rows.append({
-        "task": "text2text_baseline",
-        "split": split_name,
-        "metric": "string_accuracy",
-        "value": float(acc),
-    })
+print("\n" + "="*60)
+print("STARTING OPTIONAL TASK: SUPERVISED EVALUATOR (THE JUDGE)")
+print("="*60)
 
-# 2) Deep text→text (ALL splits)
-for split_name, acc in results_t2t_deep.items():
-    summary_rows.append({
-        "task": "text2text_deep",
-        "split": split_name,
-        "metric": "string_accuracy",
-        "value": float(acc),
-    })
+# 1. HELPER: Create dataset for the Judge (Digits + Signs + Space)
+def create_classifier_dataset(num_samples_per_class=2000):
+    X_cls = []
+    y_cls = []
+    
+    char_map = {char: i for i, char in enumerate(unique_characters)}
+    
+    # Add MNIST digits (0-9)
+    for digit in range(10):
+        inds = np.where(MNIST_labels == digit)[0]
+        selected_inds = np.random.choice(inds, num_samples_per_class, replace=True)
+        X_cls.append(MNIST_data[selected_inds])
+        label = np.zeros((num_samples_per_class, len(unique_characters)))
+        label[:, char_map[str(digit)]] = 1
+        y_cls.append(label)
+        
+    # Add Signs (+, -)
+    for sign in ['+', '-']:
+        imgs = generate_images(num_samples_per_class, sign=sign)
+        X_cls.append(imgs)
+        label = np.zeros((num_samples_per_class, len(unique_characters)))
+        label[:, char_map[sign]] = 1
+        y_cls.append(label)
 
-# 3) Image→text
-for split_name, acc in results_i2t.items():
-    summary_rows.append({
-        "task": "img2text",
-        "split": split_name,
-        "metric": "string_accuracy",
-        "value": float(acc),
-    })
+    # Add Space (' ')
+    space_imgs = np.zeros((num_samples_per_class, 28, 28))
+    X_cls.append(space_imgs)
+    label = np.zeros((num_samples_per_class, len(unique_characters)))
+    label[:, char_map[' ']] = 1
+    y_cls.append(label)
+    
+    # Concatenate and normalize
+    X_cls = np.concatenate(X_cls, axis=0)
+    y_cls = np.concatenate(y_cls, axis=0)
+    
+    # Normalize images to 0-1
+    X_cls = X_cls.astype('float32') / 255.0
+    
+    # Expand dims for CNN (N, 28, 28, 1)
+    if X_cls.ndim == 3:
+        X_cls = np.expand_dims(X_cls, -1)
+        
+    return X_cls, y_cls
 
-# 4) Text→image (loss)
-for split_name, loss in results_t2i_loss.items():
-    summary_rows.append({
-        "task": "text2img",
-        "split": split_name,
-        "metric": "binary_crossentropy",
-        "value": float(loss),
-    })
+# 2. HELPER: Build the Judge CNN
+def build_judge_model():
+    # Simple but accurate CNN
+    model = tf.keras.Sequential([
+        Input(shape=(28, 28, 1)),
+        Conv2D(32, (3, 3), activation='relu'),
+        tf.keras.layers.MaxPooling2D((2, 2)),
+        Conv2D(64, (3, 3), activation='relu'),
+        tf.keras.layers.MaxPooling2D((2, 2)),
+        Flatten(),
+        Dense(128, activation='relu'),
+        Dense(len(unique_characters), activation='softmax') # 13 classes
+    ])
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    return model
 
-df_summary = pd.DataFrame(summary_rows)
+# 3. HELPER: Evaluation Function
+def evaluate_text2img_with_judge(t2i_model, judge_model, X_text_test, y_text_test_str):
+    print("\nGenerating images from test set...")
+    gen_images = t2i_model.predict(X_text_test, verbose=0)
+    
+    if gen_images.shape[-1] != 1:
+        gen_images = np.expand_dims(gen_images, -1)
+        
+    N, seq_len, H, W, C = gen_images.shape
+    
+    # Flatten sequence to classify individual characters
+    flat_images = gen_images.reshape(N * seq_len, H, W, C)
+    
+    # Predict
+    flat_preds = judge_model.predict(flat_images, verbose=0)
+    flat_indices = np.argmax(flat_preds, axis=1)
+    
+    # Reshape back
+    seq_indices = flat_indices.reshape(N, seq_len)
+    
+    # Decode
+    pred_strings = []
+    for row in seq_indices:
+        s = "".join([unique_characters[idx] for idx in row])
+        pred_strings.append(s)
+        
+    # Calculate Accuracy
+    correct = 0
+    for pred, true in zip(pred_strings, y_text_test_str):
+        if pred == true:
+            correct += 1
+    acc = correct / len(y_text_test_str)
+    
+    return acc, pred_strings
 
-# save to Excel
-excel_path = "seq2seq_results.xlsx"
+# --- EXECUTION ---
 
-try:
-    with pd.ExcelWriter(excel_path) as writer:
-        df_summary.to_excel(writer, sheet_name="summary", index=False)
+# A. Generate Judge Data
+print("Generating classifier training data...")
+X_judge, y_judge = create_classifier_dataset()
+X_judge_tr, X_judge_te, y_judge_tr, y_judge_te = train_test_split(X_judge, y_judge, test_size=0.1)
 
-    print(f"Results saved to: {excel_path}")
-    print(df_summary)
+# B. Train Judge
+print("Training the Judge Model...")
+judge_model = build_judge_model()
+judge_model.fit(X_judge_tr, y_judge_tr, validation_data=(X_judge_te, y_judge_te), epochs=3, batch_size=64, verbose=1)
 
-except ModuleNotFoundError as e:
-    print("\n Could not write Excel file. Missing dependency.")
-    print("   Error:", e)
-    print("   Install it inside your venv with:\n")
-    print("   python -m pip install openpyxl\n")
+# C. Evaluate the LAST trained Text-to-Image model (from the previous loop)
+# We use the test set from the last split in memory (likely the 10/90 split)
+print(f"\nEvaluating the final Text-to-Image model...")
+
+# Convert the existing test set (Xte_t2i) to strings for comparison if not already done
+# Note: Xte_t2i is the one-hot input. We need the ground truth strings.
+# The variable 'yte_t2i' is images. We need the text labels corresponding to Xte_t2i.
+# We can recover them from Xte_t2i because X->Y in this task (Text->Image), 
+# but we need the ANSWER string.
+# Easier way: Decode Xte_t2i to see the query, calculate the math, get the result string.
+# OR: Just re-split the original text data using the same random_state to match indices.
+# (Since we used random_state=42 in the loop, we can replicate the split here).
+
+_, X_test_oh_judge, _, y_test_img_judge = train_test_split(
+    X_text_onehot, y_img, test_size=0.90, random_state=42 # Matching the 10/90 split
+)
+# We need the TEXT answers for these specific samples.
+_, _, _, y_test_str_judge_oh = train_test_split(
+    X_text_onehot, y_text_onehot, test_size=0.90, random_state=42
+)
+y_test_strings_judge = decode_labels(y_test_str_judge_oh)
+
+# Run Evaluation
+judge_acc, judge_preds = evaluate_text2img_with_judge(t2i_model, judge_model, X_test_oh_judge, y_test_strings_judge)
+
+print(f"\n✅ Final Text-to-Image Generative Accuracy: {judge_acc:.4f}")
+
+# Show examples
+print("\nJudge Examples (True vs Predicted by Judge reading the Image):")
+for i in range(5):
+    print(f"True Answer: '{y_test_strings_judge[i]}' | Generated Image read as: '{judge_preds[i]}'")
