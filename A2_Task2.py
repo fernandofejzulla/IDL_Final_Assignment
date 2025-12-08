@@ -184,8 +184,8 @@ def build_text2text_model():
 
     return text2text
 
+
 from sklearn.model_selection import train_test_split
-from tensorflow.keras.callbacks import EarlyStopping
 import numpy as np
 
 def exact_string_text2text(model, X, y_onehot, n_show_wrong=8):
@@ -215,9 +215,9 @@ splits = {
     "10/90": 0.90
 }
 
-results_t2t = {}  
+history_t2t = {}
 
-cb = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")]
+results_t2t = {}  
 
 for name, test_size in splits.items():
 
@@ -239,11 +239,12 @@ for name, test_size in splits.items():
     hist = model.fit(
         Xtr, ytr,
         validation_split=0.1,
-        epochs=12,
+        epochs=50,
         batch_size=128,
-        callbacks=cb,
         verbose=1
     )
+
+    history_t2t[name] = hist.history
 
     # Evaluate (string accuracy)
     acc, preds, trues = exact_string_text2text(model, Xte, yte)
@@ -253,6 +254,36 @@ for name, test_size in splits.items():
 print("\n\n FINAL TEXT→TEXT ACCURACY SUMMARY:")
 for name, acc in results_t2t.items():
     print(f"{name} split → accuracy = {acc:.4f}")
+
+# ---- Plot training/validation accuracy for text→text ----
+plt.figure(figsize=(8, 5))
+for split_name, h in history_t2t.items():
+    epochs = range(1, len(h['accuracy']) + 1)
+    plt.plot(epochs, h['accuracy'], marker='o', label=f'{split_name} train')
+    plt.plot(epochs, h['val_accuracy'], linestyle='--', label=f'{split_name} val')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.title('Text→Text: training vs validation accuracy for different splits')
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.savefig('t2t_accuracy_splits.png')
+plt.show()
+
+# ---- Plot training/validation loss for text→text ----
+plt.figure(figsize=(8, 5))
+for split_name, h in history_t2t.items():
+    epochs = range(1, len(h['loss']) + 1)
+    plt.plot(epochs, h['loss'], marker='o', label=f'{split_name} train')
+    plt.plot(epochs, h['val_loss'], linestyle='--', label=f'{split_name} val')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.title('Text→Text: training vs validation loss for different splits')
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.savefig('t2t_loss_splits.png')
+plt.show()
 
 """ Deeper model for text-to-text"""
 
@@ -280,34 +311,45 @@ def build_text2text_model_deep(hidden_size=256):
     )
     return model
 
+
+# ✅ define this ONCE here, not inside the function
+results_t2t_deep = {}
+
 print("\n" + "="*60)
-print("TRAINING DEEP TEXT→TEXT MODEL (extra LSTM layer) – 50/50 split")
+print("TRAINING DEEP TEXT→TEXT MODELS (extra LSTM layer) – ALL SPLITS")
 print("="*60)
 
-Xtr_deep, Xte_deep, ytr_deep, yte_deep = train_test_split(
-    X_text_onehot, y_text_onehot,
-    test_size=0.5,
-    random_state=42
-)
+for split_name, test_size in splits.items():
+    print(f"\n--- Deep Text→Text split {split_name} ---")
 
-deep_model = build_text2text_model_deep(hidden_size=256)
+    # train/test split for this deep model
+    Xtr_deep, Xte_deep, ytr_deep, yte_deep = train_test_split(
+        X_text_onehot, y_text_onehot,
+        test_size=test_size,
+        random_state=42
+    )
 
-cb_deep = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")]
+    # build fresh deep model
+    deep_model = build_text2text_model_deep(hidden_size=256)
 
-hist_deep = deep_model.fit(
-    Xtr_deep, ytr_deep,
-    validation_split=0.1,
-    epochs=12,
-    batch_size=128,
-    callbacks=cb_deep,
-    verbose=1
-)
+    # train
+    hist_deep = deep_model.fit(
+        Xtr_deep, ytr_deep,
+        validation_split=0.1,
+        epochs=50,
+        batch_size=128,
+        verbose=1
+    )
 
-deep_acc, _, _ = exact_string_text2text(
-    deep_model, Xte_deep, yte_deep, n_show_wrong=8
-)
+    # evaluate (string accuracy)
+    deep_acc, _, _ = exact_string_text2text(
+        deep_model, Xte_deep, yte_deep, n_show_wrong=5
+    )
 
-print(f"\nDeep text→text string accuracy (50/50 split): {deep_acc:.4f}")
+    print(f"Deep text→text string accuracy ({split_name} split): {deep_acc:.4f}")
+
+    # store for Excel
+    results_t2t_deep[split_name] = float(deep_acc)
 
 """ Build the image-to-text model"""
 
@@ -331,6 +373,43 @@ def build_img2text_model(img_shape, answer_len=3, num_chars=13, hidden_size=256)
     )
     return model
 
+def show_img2text_examples(model, X, y_onehot, n_examples=3, save_prefix=None):
+    """
+    Show a few MNIST query sequences with true vs predicted text answers.
+    X        : (N, T_query, H, W, 1)
+    y_onehot: (N, T_answer, num_chars)
+    """
+    # Get predicted and true strings
+    preds = model.predict(X, verbose=0)
+    pred_txt = decode_labels(preds)
+    true_txt = decode_labels(y_onehot)
+
+    # Choose random examples
+    idxs = np.random.choice(len(X), size=n_examples, replace=False)
+
+    T_query = X.shape[1]
+
+    for k, idx in enumerate(idxs):
+        fig, axes = plt.subplots(1, T_query, figsize=(3*T_query, 3))
+        fig.suptitle(
+            f"Example {k} – true='{true_txt[idx]}' | pred='{pred_txt[idx]}'",
+            fontsize=12
+        )
+
+        for t in range(T_query):
+            img = X[idx, t]
+            if img.ndim == 3 and img.shape[-1] == 1:
+                img = img[..., 0]
+            axes[t].imshow(img, cmap='gray')
+            axes[t].axis('off')
+            axes[t].set_title(f"t={t}")
+
+        plt.tight_layout()
+        if save_prefix is not None:
+            plt.savefig(f"{save_prefix}_img2text_example{idx}.png")
+        plt.show()
+        plt.close(fig)
+
 X_img = X_img.astype('float32') / 255.0
 
 if X_img.ndim == 4:
@@ -345,8 +424,9 @@ splits = {
     "10/90": 0.90
 }
 
+histories_i2t = {}
+
 results_i2t = {}
-cb = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")] 
 
 #Training
 for name, test_size in splits.items():
@@ -375,11 +455,15 @@ for name, test_size in splits.items():
     hist_i2t = i2t_model.fit(
         Xtr_i2t, ytr_i2t,
         validation_split=0.1,
-        epochs=12,
+        epochs=50,
         batch_size=128,
-        callbacks=cb,
         verbose=1
     )
+
+    print(f"\nImage→Text visual examples for split {name}:")
+    show_img2text_examples(i2t_model, Xte_i2t, yte_i2t, n_examples=3, save_prefix=f"img2text_{name.replace('/', '')}")
+
+    histories_i2t[name] = hist_i2t.history
 
     # Evaluate (string accuracy)
     acc_i2t, preds_i2t, trues_i2t = exact_string_text2text(i2t_model, Xte_i2t, yte_i2t, n_show_wrong=8)
@@ -388,6 +472,20 @@ for name, test_size in splits.items():
 print("\n\n FINAL IMAGE→TEXT ACCURACY SUMMARY:")
 for name, acc in results_i2t.items():
     print(f"{name} split → accuracy = {acc:.4f}")
+
+plt.figure(figsize=(8,5))
+for split_name, h in histories_i2t.items():
+    epochs = range(1, len(h['accuracy']) + 1)
+    plt.plot(epochs, h['accuracy'], marker='o', label=f'{split_name} train')
+    plt.plot(epochs, h['val_accuracy'], linestyle='--', label=f'{split_name} val')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.title('Image→Text: training vs validation accuracy for different splits')
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.savefig('i2t_accuracy_splits.png')
+plt.show()
 
 """ Build the text-to-image model"""
 
@@ -465,6 +563,7 @@ def show_text2img_examples(model, X, y_true, n_examples=3, save_prefix=None):
         if save_prefix is not None:
             plt.savefig(f"{save_prefix}_example{k}.png")
         plt.show()
+        plt.close(fig) 
 
 y_img = y_img.astype('float32') / 255.0
 
@@ -481,8 +580,9 @@ splits_t2i = {
     "10/90": 0.90
 }
 
+histories_t2i = {}
+
 results_t2i_loss = {}
-cb = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")]
 
 for name, test_size in splits_t2i.items():
     print("\n" + "="*60)
@@ -506,19 +606,101 @@ for name, test_size in splits_t2i.items():
     hist_t2i = t2i_model.fit(
         Xtr_t2i, ytr_t2i,
         validation_split=0.1,
-        epochs=12,
+        epochs=50,
         batch_size=128,
-        callbacks=cb,
         verbose=1
     )
 
+    histories_t2i[name] = hist_t2i.history
+
     test_loss = t2i_model.evaluate(Xte_t2i, yte_t2i, verbose=0)
     print(f"Test binary crossentropy (pixel-wise) for split {name}: {test_loss:.4f}")
-
     results_t2i_loss[name] = test_loss
 
-    show_text2img_examples(t2i_model, Xte_t2i, yte_t2i, n_examples=3, save_prefix=None)
+    # ---- Visual examples (TEXT→IMAGE ONLY) ----
+    print(f"\nSome visual examples for TEXT→IMAGE, split {name}:")
+    show_text2img_examples(
+        t2i_model,
+        Xte_t2i,
+        yte_t2i,
+        n_examples=3,
+        save_prefix=f"text2img_{name.replace('/', '')}"
+    )
+
 
 print("\n\n FINAL TEXT→IMAGE TEST LOSS SUMMARY:")
 for name, loss in results_t2i_loss.items():
     print(f"{name} split → test loss = {loss:.4f}")
+
+plt.figure(figsize=(8,5))
+for split_name, h in histories_t2i.items():
+    epochs = range(1, len(h['loss']) + 1)
+    plt.plot(epochs, h['loss'], marker='o', label=f'{split_name} train')
+    plt.plot(epochs, h['val_loss'], linestyle='--', label=f'{split_name} val')
+plt.xlabel('Epoch')
+plt.ylabel('Binary cross-entropy loss')
+plt.title('Text→Image: training vs validation loss for different splits')
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.savefig('t2i_loss_splits.png')
+plt.show()
+
+
+import pandas as pd
+#table summarizing all results
+summary_rows = []
+
+# 1) Baseline text→text
+for split_name, acc in results_t2t.items():
+    summary_rows.append({
+        "task": "text2text_baseline",
+        "split": split_name,
+        "metric": "string_accuracy",
+        "value": float(acc),
+    })
+
+# 2) Deep text→text (ALL splits)
+for split_name, acc in results_t2t_deep.items():
+    summary_rows.append({
+        "task": "text2text_deep",
+        "split": split_name,
+        "metric": "string_accuracy",
+        "value": float(acc),
+    })
+
+# 3) Image→text
+for split_name, acc in results_i2t.items():
+    summary_rows.append({
+        "task": "img2text",
+        "split": split_name,
+        "metric": "string_accuracy",
+        "value": float(acc),
+    })
+
+# 4) Text→image (loss)
+for split_name, loss in results_t2i_loss.items():
+    summary_rows.append({
+        "task": "text2img",
+        "split": split_name,
+        "metric": "binary_crossentropy",
+        "value": float(loss),
+    })
+
+df_summary = pd.DataFrame(summary_rows)
+
+# save to Excel
+excel_path = "seq2seq_results.xlsx"
+
+try:
+    with pd.ExcelWriter(excel_path) as writer:
+        df_summary.to_excel(writer, sheet_name="summary", index=False)
+
+    print(f"Results saved to: {excel_path}")
+    print(df_summary)
+
+except ModuleNotFoundError as e:
+    print("\n Could not write Excel file. Missing dependency.")
+    print("   Error:", e)
+    print("   Install it inside your venv with:\n")
+    print("   python -m pip install openpyxl\n")
