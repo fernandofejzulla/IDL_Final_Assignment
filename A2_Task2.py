@@ -673,3 +673,76 @@ print(f"\n✅ Final Text-to-Image Generative Accuracy: {judge_acc:.4f}")
 print("\nJudge Examples (True vs Predicted by Judge reading the Image):")
 for i in range(5):
     print(f"True Answer: '{y_test_strings_judge[i]}' | Generated Image read as: '{judge_preds[i]}'")
+
+
+# ==============================================================================
+# PLOTTING: Compare Training & Validation Loss for All 3 Models
+# ==============================================================================
+
+def plot_combined_history(histories, titles, filename="training_loss_comparison.png"):
+    """
+    Plots training and validation loss for multiple models side-by-side.
+    """
+    n_models = len(histories)
+    fig, axes = plt.subplots(1, n_models, figsize=(6 * n_models, 5))
+    
+    if n_models == 1:
+        axes = [axes]
+
+    for i, (hist, title) in enumerate(zip(histories, titles)):
+        ax = axes[i]
+        # Extract loss data
+        loss = hist.history['loss']
+        val_loss = hist.history['val_loss']
+        epochs = range(1, len(loss) + 1)
+        
+        # Plot
+        ax.plot(epochs, loss, 'b-', label='Training Loss')
+        ax.plot(epochs, val_loss, 'r--', label='Validation Loss')
+        
+        # Formatting
+        ax.set_title(title, fontsize=12, fontweight='bold')
+        ax.set_xlabel('Epochs')
+        ax.set_ylabel('Loss')
+        ax.legend()
+        ax.grid(True)
+        
+        # Annotate final loss
+        ax.text(0.5, 0.05, f'Final Val Loss: {val_loss[-1]:.4f}', 
+                transform=ax.transAxes, ha='center', fontsize=10, 
+                bbox=dict(facecolor='white', alpha=0.8))
+
+    plt.tight_layout()
+    plt.savefig(filename)
+    print(f"\n✅ Plot saved to {filename}")
+    plt.show()
+
+print("\n" + "="*60)
+print("GENERATING LOSS PLOTS")
+print("="*60)
+
+# Collect history objects from the script (using the last split: 10/90)
+# 'hist'     -> Text-to-Text Model
+# 'hist_i2t' -> Image-to-Text Model
+# 'hist_t2i' -> Text-to-Image Model
+
+# Check if variables exist (in case you commented out parts of the code)
+histories_to_plot = []
+titles_to_plot = []
+
+if 'hist' in locals():
+    histories_to_plot.append(hist)
+    titles_to_plot.append("Text-to-Text (10/90 Split)\n(Categorical Crossentropy)")
+
+if 'hist_i2t' in locals():
+    histories_to_plot.append(hist_i2t)
+    titles_to_plot.append("Image-to-Text (10/90 Split)\n(Categorical Crossentropy)")
+    
+if 'hist_t2i' in locals():
+    histories_to_plot.append(hist_t2i)
+    titles_to_plot.append("Text-to-Image (10/90 Split)\n(Binary Crossentropy)")
+
+if histories_to_plot:
+    plot_combined_history(histories_to_plot, titles_to_plot)
+else:
+    print("No history objects found. Make sure the training loops have run.")
