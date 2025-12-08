@@ -216,40 +216,29 @@ splits = {
     "25/75": 0.75,
     "10/90": 0.90
 }
-
+# Master dictionary to store history for all splits and models
+# Structure: all_histories[split_name][model_name] = history_object
+all_histories = {
+    "50/50": {},
+    "25/75": {},
+    "10/90": {}
+}
 results_t2t = {}  
 
 cb = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")]
 
 for name, test_size in splits.items():
-
-    print("\n" + "="*60)
-    print(f"TRAINING TEXT→TEXT MODEL FOR SPLIT {name} (test_size={test_size})")
-    print("="*60)
-
-    # Split dataset
-    Xtr, Xte, ytr, yte = train_test_split(
-        X_text_onehot, y_text_onehot,
-        test_size=test_size,
-        random_state=42
-    )
-
-    # Build fresh model
+    print(f"\n--- T2T SPLIT {name} ---")
+    Xtr, Xte, ytr, yte = train_test_split(X_text_onehot, y_text_onehot, test_size=test_size, random_state=42)
+    
     model = build_text2text_model()
-
-    # Train
-    hist = model.fit(
-        Xtr, ytr,
-        validation_split=0.1,
-        epochs=100,
-        batch_size=128,
-        callbacks=cb,
-        verbose=1
-    )
-
-    # Evaluate (string accuracy)
-    acc, preds, trues = exact_string_text2text(model, Xte, yte)
-
+    
+    hist = model.fit(Xtr, ytr, validation_split=0.1, epochs=50, batch_size=128, callbacks=cb, verbose=1)
+    
+    # SAVE HISTORY
+    all_histories[name]['Text-to-Text'] = hist 
+    
+    acc, _, _ = exact_string_text2text(model, Xte, yte)
     results_t2t[name] = acc
 
 print("\n\n FINAL TEXT→TEXT ACCURACY SUMMARY:")
@@ -350,41 +339,19 @@ splits = {
 results_i2t = {}
 cb = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")] 
 
-#Training
 for name, test_size in splits.items():
+    print(f"\n--- I2T SPLIT {name} ---")
+    Xtr_i2t, Xte_i2t, ytr_i2t, yte_i2t = train_test_split(X_img, y_text_onehot, test_size=test_size, random_state=42)
 
-    print("\n" + "="*60)
-    print(f"TRAINING IMAGE→TEXT MODEL FOR SPLIT {name} (test_size={test_size})")
-    print("="*60)
-
-    # Split dataset
-    Xtr_i2t, Xte_i2t, ytr_i2t, yte_i2t = train_test_split(
-        X_img, y_text_onehot,
-        test_size=test_size,
-        random_state=42
-    )
-
-    # Build fresh model
     img_shape = Xtr_i2t.shape[1:]
-    i2t_model = build_img2text_model(
-        img_shape = img_shape,
-        answer_len = y_text_onehot.shape[1],
-        num_chars = y_text_onehot.shape[2],
-        hidden_size = 256
-    )    
+    i2t_model = build_img2text_model(img_shape=img_shape, answer_len=y_text_onehot.shape[1], num_chars=y_text_onehot.shape[2])    
 
-    #Train
-    hist_i2t = i2t_model.fit(
-        Xtr_i2t, ytr_i2t,
-        validation_split=0.1,
-        epochs=100,
-        batch_size=128,
-        callbacks=cb,
-        verbose=1
-    )
-
-    # Evaluate (string accuracy)
-    acc_i2t, preds_i2t, trues_i2t = exact_string_text2text(i2t_model, Xte_i2t, yte_i2t, n_show_wrong=8)
+    hist_i2t = i2t_model.fit(Xtr_i2t, ytr_i2t, validation_split=0.1, epochs=50, batch_size=128, callbacks=cb, verbose=1)
+    
+    # SAVE HISTORY
+    all_histories[name]['Image-to-Text'] = hist_i2t
+    
+    acc_i2t, _, _ = exact_string_text2text(i2t_model, Xte_i2t, yte_i2t, n_show_wrong=8)
     results_i2t[name] = acc_i2t
 
 print("\n\n FINAL IMAGE→TEXT ACCURACY SUMMARY:")
@@ -487,39 +454,21 @@ results_t2i_loss = {}
 cb = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")]
 
 for name, test_size in splits_t2i.items():
-    print("\n" + "="*60)
-    print(f"TRAINING TEXT→IMAGE MODEL FOR SPLIT {name} (test_size={test_size})")
-    print("="*60)
+    print(f"\n--- T2I SPLIT {name} ---")
+    Xtr_t2i, Xte_t2i, ytr_t2i, yte_t2i = train_test_split(X_text_onehot, y_img, test_size=test_size, random_state=42)
 
-    Xtr_t2i, Xte_t2i, ytr_t2i, yte_t2i = train_test_split(
-        X_text_onehot, y_img,
-        test_size=test_size,
-        random_state=42
-    )
+    t2i_model = build_text2img_model_full(query_len, num_chars, answer_len, answer_img_shape, hidden_size=256)
+    
+    # CRITICAL: Re-compile with accuracy so we can plot it!
+    t2i_model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy'])
 
-    t2i_model = build_text2img_model_full(
-        query_len=query_len,
-        num_chars=num_chars,
-        answer_len=answer_len,
-        answer_img_shape=answer_img_shape,
-        hidden_size=256
-    )
+    hist_t2i = t2i_model.fit(Xtr_t2i, ytr_t2i, validation_split=0.1, epochs=50, batch_size=128, callbacks=cb, verbose=1)
 
-    hist_t2i = t2i_model.fit(
-        Xtr_t2i, ytr_t2i,
-        validation_split=0.1,
-        epochs=100,
-        batch_size=128,
-        callbacks=cb,
-        verbose=1
-    )
+    # SAVE HISTORY
+    all_histories[name]['Text-to-Image'] = hist_t2i
 
     test_loss = t2i_model.evaluate(Xte_t2i, yte_t2i, verbose=0)
-    print(f"Test binary crossentropy (pixel-wise) for split {name}: {test_loss:.4f}")
-
     results_t2i_loss[name] = test_loss
-
-    show_text2img_examples(t2i_model, Xte_t2i, yte_t2i, n_examples=3, save_prefix=True)
 
 print("\n\n FINAL TEXT→IMAGE TEST LOSS SUMMARY:")
 for name, loss in results_t2i_loss.items():
@@ -678,71 +627,61 @@ for i in range(5):
 # ==============================================================================
 # PLOTTING: Compare Training & Validation Loss for All 3 Models
 # ==============================================================================
+# ==============================================================================
+# PLOTTING: Accuracy vs Val Accuracy (3 Splits x 3 Models)
+# ==============================================================================
 
-def plot_combined_history(histories, titles, filename="training_loss_comparison.png"):
-    """
-    Plots training and validation loss for multiple models side-by-side.
-    """
-    n_models = len(histories)
-    fig, axes = plt.subplots(1, n_models, figsize=(6 * n_models, 5))
+def plot_all_accuracies(histories_dict, filename="all_splits_accuracy.png"):
+    splits = ["50/50", "25/75", "10/90"]
+    models = ["Text-to-Text", "Image-to-Text", "Text-to-Image"]
     
-    if n_models == 1:
-        axes = [axes]
+    # Create 3x3 Grid
+    fig, axes = plt.subplots(3, 3, figsize=(18, 15))
+    fig.suptitle("Model Accuracy vs Validation Accuracy across Splits", fontsize=16)
 
-    for i, (hist, title) in enumerate(zip(histories, titles)):
-        ax = axes[i]
-        # Extract loss data
-        loss = hist.history['loss']
-        val_loss = hist.history['val_loss']
-        epochs = range(1, len(loss) + 1)
-        
-        # Plot
-        ax.plot(epochs, loss, 'b-', label='Training Loss')
-        ax.plot(epochs, val_loss, 'r--', label='Validation Loss')
-        
-        # Formatting
-        ax.set_title(title, fontsize=12, fontweight='bold')
-        ax.set_xlabel('Epochs')
-        ax.set_ylabel('Loss')
-        ax.legend()
-        ax.grid(True)
-        
-        # Annotate final loss
-        ax.text(0.5, 0.05, f'Final Val Loss: {val_loss[-1]:.4f}', 
-                transform=ax.transAxes, ha='center', fontsize=10, 
-                bbox=dict(facecolor='white', alpha=0.8))
+    for i, split in enumerate(splits):
+        for j, model_name in enumerate(models):
+            ax = axes[i, j]
+            
+            # Check if history exists for this split/model combination
+            if split in histories_dict and model_name in histories_dict[split]:
+                hist = histories_dict[split][model_name]
+                
+                # Get Accuracy keys (handle potential naming diffs)
+                # T2T/I2T usually 'accuracy', T2I might be 'accuracy' or 'binary_accuracy'
+                acc_key = 'accuracy' if 'accuracy' in hist.history else 'binary_accuracy'
+                val_acc_key = 'val_accuracy' if 'val_accuracy' in hist.history else 'val_binary_accuracy'
 
-    plt.tight_layout()
+                if acc_key in hist.history:
+                    acc = hist.history[acc_key]
+                    val_acc = hist.history.get(val_acc_key, [])
+                    epochs = range(1, len(acc) + 1)
+
+                    ax.plot(epochs, acc, 'b-', label='Train Acc')
+                    if len(val_acc) > 0:
+                        ax.plot(epochs, val_acc, 'r--', label='Val Acc')
+                    
+                    # Annotate Final Value
+                    final_val = val_acc[-1] if len(val_acc) > 0 else acc[-1]
+                    ax.text(0.5, 0.1, f'Final: {final_val:.2%}', transform=ax.transAxes, 
+                            ha='center', bbox=dict(facecolor='white', alpha=0.8))
+                else:
+                    ax.text(0.5, 0.5, "No Accuracy Metric Found", ha='center')
+            else:
+                ax.text(0.5, 0.5, "Data Not Available", ha='center')
+
+            # Formatting
+            if i == 0: ax.set_title(model_name, fontsize=14, fontweight='bold')
+            if j == 0: ax.set_ylabel(f"Split {split}\nAccuracy", fontsize=12, fontweight='bold')
+            
+            ax.grid(True)
+            ax.legend(loc='lower right')
+            if i == 2: ax.set_xlabel("Epochs")
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust for suptitle
     plt.savefig(filename)
-    print(f"\n✅ Plot saved to {filename}")
+    print(f"\n✅ Accuracy plot saved to {filename}")
     plt.show()
 
-print("\n" + "="*60)
-print("GENERATING LOSS PLOTS")
-print("="*60)
-
-# Collect history objects from the script (using the last split: 10/90)
-# 'hist'     -> Text-to-Text Model
-# 'hist_i2t' -> Image-to-Text Model
-# 'hist_t2i' -> Text-to-Image Model
-
-# Check if variables exist (in case you commented out parts of the code)
-histories_to_plot = []
-titles_to_plot = []
-
-if 'hist' in locals():
-    histories_to_plot.append(hist)
-    titles_to_plot.append("Text-to-Text (10/90 Split)\n(Categorical Crossentropy)")
-
-if 'hist_i2t' in locals():
-    histories_to_plot.append(hist_i2t)
-    titles_to_plot.append("Image-to-Text (10/90 Split)\n(Categorical Crossentropy)")
-    
-if 'hist_t2i' in locals():
-    histories_to_plot.append(hist_t2i)
-    titles_to_plot.append("Text-to-Image (10/90 Split)\n(Binary Crossentropy)")
-
-if histories_to_plot:
-    plot_combined_history(histories_to_plot, titles_to_plot)
-else:
-    print("No history objects found. Make sure the training loops have run.")
+# Run the plotter
+plot_all_accuracies(all_histories)
