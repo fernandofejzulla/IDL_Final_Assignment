@@ -453,7 +453,6 @@ splits_t2i = {
     "25/75": 0.75,
     "10/90": 0.90
 }
-
 results_t2i_loss = {}
 cb = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")]
 
@@ -463,8 +462,7 @@ for name, test_size in splits_t2i.items():
 
     t2i_model = build_text2img_model_full(query_len, num_chars, answer_len, answer_img_shape, hidden_size=256)
     
-    # CRITICAL: Re-compile with accuracy so we can plot it!
-    opt = tf.keras.optimizers.Adam(learning_rate=0.001)
+    # Re-compile with accuracy so we can plot it
     t2i_model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy'])
 
     hist_t2i = t2i_model.fit(Xtr_t2i, ytr_t2i, validation_split=0.1, epochs=50, batch_size=128, callbacks=cb, verbose=1)
@@ -472,8 +470,14 @@ for name, test_size in splits_t2i.items():
     # SAVE HISTORY
     all_histories[name]['Text-to-Image'] = hist_t2i
 
-    test_loss = t2i_model.evaluate(Xte_t2i, yte_t2i, verbose=0)
+    # FIX: Unpack the results. evaluate returns [loss, accuracy]
+    eval_results = t2i_model.evaluate(Xte_t2i, yte_t2i, verbose=0)
+    test_loss = eval_results[0] # The first item is always the loss
+    
     results_t2i_loss[name] = test_loss
+    
+    # Optional: Show examples
+    show_text2img_examples(t2i_model, Xte_t2i, yte_t2i, n_examples=3, save_prefix=f"t2i_{name.replace('/','')}")
 
 print("\n\n FINAL TEXT→IMAGE TEST LOSS SUMMARY:")
 for name, loss in results_t2i_loss.items():
