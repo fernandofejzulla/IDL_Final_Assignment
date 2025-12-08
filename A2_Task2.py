@@ -11,7 +11,7 @@ from tensorflow.keras.layers import RepeatVector, Conv2D, SimpleRNN, GRU, Reshap
 from tensorflow.keras.models import Model
 from scipy.ndimage import rotate
 
-
+opt = tf.keras.optimizers.Adam(learning_rate=0.001)
 # Create plus/minus operand signs
 def generate_images(number_of_images=50, sign='-'):
     blank_images = np.zeros([number_of_images, 28, 28])  # Dimensionality matches the size of MNIST images (28x28)
@@ -179,7 +179,7 @@ def build_text2text_model():
     text2text.add(TimeDistributed(Dense(len(unique_characters), activation='softmax')))
 
     # Next we compile the model using categorical crossentropy as our loss function.
-    text2text.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    text2text.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
     text2text.summary()
 
     return text2text
@@ -274,7 +274,7 @@ def build_text2text_model_deep(hidden_size=256):
 
     model = Model(enc_inputs, outputs)
     model.compile(
-        optimizer='adam',
+        optimizer=opt,
         loss='categorical_crossentropy',
         metrics=['accuracy']
     )
@@ -325,7 +325,7 @@ def build_img2text_model(img_shape, answer_len=3, num_chars=13, hidden_size=256)
 
     model = Model(img_inputs, outputs)
     model.compile(
-        optimizer='adam',
+        optimizer=opt,
         loss='categorical_crossentropy',
         metrics=['accuracy']
     )
@@ -422,7 +422,7 @@ def build_text2img_model_full(query_len,
 
     model = Model(text_inputs, outputs)
     model.compile(
-        optimizer='adam',
+        optimizer=opt,
         loss='binary_crossentropy'
     )
     return model
@@ -590,7 +590,7 @@ def build_judge_model():
         Dense(128, activation='relu'),
         Dense(len(unique_characters), activation='softmax') # 13 classes
     ])
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
 # 3. HELPER: Evaluation Function
