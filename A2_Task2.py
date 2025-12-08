@@ -10,6 +10,8 @@ from tensorflow.keras.layers import Dense, RNN, LSTM, Flatten, TimeDistributed, 
 from tensorflow.keras.layers import RepeatVector, Conv2D, SimpleRNN, GRU, Reshape, ConvLSTM2D, Conv2DTranspose
 from tensorflow.keras.models import Model
 from scipy.ndimage import rotate
+import tensorflow as tf
+tf.config.run_functions_eagerly(True)
 
 opt = tf.keras.optimizers.Adam(learning_rate=0.001)
 # Create plus/minus operand signs
