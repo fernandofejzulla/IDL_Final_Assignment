@@ -239,7 +239,7 @@ for name, test_size in splits.items():
     hist = model.fit(
         Xtr, ytr,
         validation_split=0.1,
-        epochs=12,
+        epochs=100,
         batch_size=128,
         callbacks=cb,
         verbose=1
@@ -297,7 +297,7 @@ cb_deep = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_los
 hist_deep = deep_model.fit(
     Xtr_deep, ytr_deep,
     validation_split=0.1,
-    epochs=12,
+    epochs=100,
     batch_size=128,
     callbacks=cb_deep,
     verbose=1
@@ -375,7 +375,7 @@ for name, test_size in splits.items():
     hist_i2t = i2t_model.fit(
         Xtr_i2t, ytr_i2t,
         validation_split=0.1,
-        epochs=12,
+        epochs=100,
         batch_size=128,
         callbacks=cb,
         verbose=1
@@ -506,7 +506,7 @@ for name, test_size in splits_t2i.items():
     hist_t2i = t2i_model.fit(
         Xtr_t2i, ytr_t2i,
         validation_split=0.1,
-        epochs=12,
+        epochs=100,
         batch_size=128,
         callbacks=cb,
         verbose=1
@@ -638,7 +638,7 @@ X_judge_tr, X_judge_te, y_judge_tr, y_judge_te = train_test_split(X_judge, y_jud
 # B. Train Judge
 print("Training the Judge Model...")
 judge_model = build_judge_model()
-judge_model.fit(X_judge_tr, y_judge_tr, validation_data=(X_judge_te, y_judge_te), epochs=3, batch_size=64, verbose=1)
+judge_model.fit(X_judge_tr, y_judge_tr, validation_data=(X_judge_te, y_judge_te), epochs=100, batch_size=64, verbose=1)
 
 # C. Evaluate the LAST trained Text-to-Image model (from the previous loop)
 # We use the test set from the last split in memory (likely the 10/90 split)
