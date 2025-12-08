@@ -517,7 +517,7 @@ for name, test_size in splits_t2i.items():
 
     results_t2i_loss[name] = test_loss
 
-    show_text2img_examples(t2i_model, Xte_t2i, yte_t2i, n_examples=3, save_prefix=None)
+    show_text2img_examples(t2i_model, Xte_t2i, yte_t2i, n_examples=3, save_prefix=True)
 
 print("\n\n FINAL TEXT→IMAGE TEST LOSS SUMMARY:")
 for name, loss in results_t2i_loss.items():
