@@ -696,3 +696,124 @@ def plot_all_accuracies(histories_dict, filename="all_splits_accuracy.png"):
 
 # Run the plotter
 plot_all_accuracies(all_histories)
+
+# ==============================================================================
+# TASK 2 PART 5: DEEP MODELS (Additional LSTM Layers)
+# ==============================================================================
+
+print("\n" + "="*60)
+print("STARTING PART 5: DEEP MODEL COMPARISON (25/75 SPLIT)")
+print("="*60)
+
+# --- A. Define Deep Versions of the Models ---
+
+def build_img2text_model_deep(img_shape, answer_len=3, num_chars=13, hidden_size=256):
+    """Adds an extra LSTM layer to the Encoder"""
+    img_inputs = Input(shape=img_shape)
+    x = TimeDistributed(Flatten())(img_inputs)
+    
+    # Encoder Layer 1: Returns full sequence
+    x = LSTM(hidden_size, return_sequences=True)(x)
+    
+    # Encoder Layer 2: Returns final state (Compressed Vector)
+    enc = LSTM(hidden_size)(x)
+
+    # Decoder (Standard)
+    dec = RepeatVector(answer_len)(enc)
+    dec = LSTM(hidden_size, return_sequences=True)(dec)
+    outputs = TimeDistributed(Dense(num_chars, activation='softmax'))(dec)
+
+    model = Model(img_inputs, outputs)
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001), 
+                  loss='categorical_crossentropy', metrics=['accuracy'])
+    return model
+
+def build_text2img_model_deep(query_len, num_chars, answer_len, answer_img_shape, hidden_size=256):
+    """Adds an extra LSTM layer to the Encoder"""
+    flat_dim = int(np.prod(answer_img_shape))
+
+    text_inputs = Input(shape=(query_len, num_chars))
+    
+    # Encoder Layer 1: Returns full sequence
+    x = LSTM(hidden_size, return_sequences=True)(text_inputs)
+    
+    # Encoder Layer 2: Final state
+    enc = LSTM(hidden_size)(x)
+
+    # Decoder
+    x = RepeatVector(answer_len)(enc)
+    x = LSTM(hidden_size, return_sequences=True)(x)
+    x = TimeDistributed(Dense(flat_dim, activation='sigmoid'))(x)
+    outputs = TimeDistributed(Reshape(answer_img_shape))(x)  
+
+    model = Model(text_inputs, outputs)
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001), 
+                  loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+# --- B. Train Deep Models on the 25/75 Split ---
+# We use 25/75 because it's hard enough to show differences, but has enough data for deep models.
+
+split_name = "25/75"
+test_pct = 0.75
+deep_histories = {}
+
+# 1. Deep Image-to-Text
+print(f"\nTraining Deep Image-to-Text on {split_name}...")
+Xtr_i2t, Xte_i2t, ytr_i2t, yte_i2t = train_test_split(X_img, y_text_onehot, test_size=test_pct, random_state=42)
+img_shape = Xtr_i2t.shape[1:]
+
+deep_i2t = build_img2text_model_deep(img_shape, answer_len=3, num_chars=13)
+hist_deep_i2t = deep_i2t.fit(Xtr_i2t, ytr_i2t, validation_split=0.1, epochs=40, batch_size=128, verbose=1)
+deep_histories['Image-to-Text'] = hist_deep_i2t
+
+# 2. Deep Text-to-Image
+print(f"\nTraining Deep Text-to-Image on {split_name}...")
+Xtr_t2i, Xte_t2i, ytr_t2i, yte_t2i = train_test_split(X_text_onehot, y_img, test_size=test_pct, random_state=42)
+
+deep_t2i = build_text2img_model_deep(query_len, num_chars, answer_len, answer_img_shape)
+hist_deep_t2i = deep_t2i.fit(Xtr_t2i, ytr_t2i, validation_split=0.1, epochs=40, batch_size=128, verbose=1)
+deep_histories['Text-to-Image'] = hist_deep_t2i
+
+# --- C. Compare Shallow vs Deep (Plotting) ---
+
+def plot_deep_comparison(shallow_hist_dict, deep_hist_dict, split_key="25/75"):
+    models_to_compare = ['Image-to-Text', 'Text-to-Image']
+    
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    fig.suptitle(f"Shallow vs Deep Architecture (Split: {split_key})", fontsize=16)
+    
+    for i, model_name in enumerate(models_to_compare):
+        ax = axes[i]
+        
+        # Get Shallow History (from your 'all_histories' global var)
+        if split_key in shallow_hist_dict and model_name in shallow_hist_dict[split_key]:
+            shallow_hist = shallow_hist_dict[split_key][model_name]
+            # Handle metrics naming
+            acc_key = 'accuracy' if 'accuracy' in shallow_hist.history else 'binary_accuracy'
+            val_acc_key = 'val_accuracy' if 'val_accuracy' in shallow_hist.history else 'val_binary_accuracy'
+            
+            ax.plot(shallow_hist.history[val_acc_key], 'b--', label='Shallow Val Acc')
+        else:
+            print(f"Warning: No shallow history found for {model_name} in {split_key}")
+
+        # Get Deep History
+        deep_hist = deep_hist_dict[model_name]
+        d_acc_key = 'accuracy' if 'accuracy' in deep_hist.history else 'binary_accuracy'
+        d_val_acc_key = 'val_accuracy' if 'val_accuracy' in deep_hist.history else 'val_binary_accuracy'
+        
+        ax.plot(deep_hist.history[d_val_acc_key], 'r-', label='Deep Val Acc', linewidth=2)
+        
+        ax.set_title(model_name)
+        ax.set_xlabel("Epochs")
+        ax.set_ylabel("Validation Accuracy")
+        ax.legend()
+        ax.grid(True)
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig("shallow_vs_deep_comparison.png")
+    plt.show()
+
+# Run the comparison plot
+# Note: This relies on 'all_histories' being populated from your previous loops
+plot_deep_comparison(all_histories, deep_histories, split_key="25/75")
