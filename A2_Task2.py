@@ -463,6 +463,7 @@ for name, test_size in splits_t2i.items():
     t2i_model = build_text2img_model_full(query_len, num_chars, answer_len, answer_img_shape, hidden_size=256)
     
     # Re-compile with accuracy so we can plot it
+    opt = tf.keras.optimizers.Adam(learning_rate=0.001)
     t2i_model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy'])
 
     hist_t2i = t2i_model.fit(Xtr_t2i, ytr_t2i, validation_split=0.1, epochs=50, batch_size=128, callbacks=cb, verbose=1)
