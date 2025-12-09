@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-"""A2_GenerativeModels_Task1_Modified.ipynb"""
 
 import os
 os.environ['TF_USE_LEGACY_KERAS'] = '1'
@@ -11,14 +9,14 @@ import matplotlib.pyplot as plt
 import cv2
 from tensorflow.keras.layers import Dense, Flatten, Conv2D, Conv2DTranspose, Reshape
 
-# --- DATASET LOADING ---
+
 
 def load_real_samples(image_dir, scale=False, img_size=64, limit=20000):
     images = []
     count = 0
     if not os.path.exists(image_dir):
         print(f"Warning: Directory {image_dir} not found. Ensure dataset path is correct.")
-        return np.zeros((1, img_size, img_size, 3)) # Return dummy for syntax check if path missing
+        return np.zeros((1, img_size, img_size, 3)) 
 
     for filename in os.listdir(image_dir):
         if filename.lower().endswith(('.jpg', '.jpeg', '.png')):
@@ -36,15 +34,15 @@ def load_real_samples(image_dir, scale=False, img_size=64, limit=20000):
         X = (X - 127.5) * 2
     return X / 255.0
 
-# NOTE: Ensure this path is correct for your environment
+
 dataset = load_real_samples("/data/s4561341/cats/")
 
-# --- VISUALIZATION HELPERS ---
+
 
 def grid_plot(images, latent_dim, filters, epoch='', name='', n=3, save=False, scale=False, model_name="vae"):
     if scale:
         images = (images + 1) / 2.0
-    plt.figure(figsize=(n*2, n*2)) # Adjust figure size slightly
+    plt.figure(figsize=(n*2, n*2))
     for index in range(n * n):
         plt.subplot(n, n, 1 + index)
         plt.axis('off')
@@ -58,7 +56,6 @@ def grid_plot(images, latent_dim, filters, epoch='', name='', n=3, save=False, s
     else:
         plt.show()
 
-# --- MODEL BUILDING BLOCKS ---
 
 def build_conv_net(in_shape, out_shape, n_downsampling_layers=4, filters=128, out_activation='sigmoid'):
     default_args=dict(kernel_size=(3,3), strides=(2,2), padding='same', activation='relu')
@@ -110,11 +107,9 @@ def build_vae(data_shape, latent_dim, filters=128):
     return encoder, decoder, vae
 
 
-# --- EXPERIMENTAL SETUP & EXECUTION ---
-
 latent_dims = [64, 128]
 filters = [128, 256]
-SEEDS = [42, 101, 202] # Fixed seeds for reproducibility
+SEEDS = [42, 101, 202] 
 EPOCHS = 100
 
 os.makedirs('results/vae', exist_ok=True)
@@ -123,28 +118,24 @@ for latent_dim in latent_dims:
     for filter_count in filters:
         print(f"\n=== Configuration: Latent Dim {latent_dim}, Filters {filter_count} ===")
         
-        # Store histories for all seeds for this configuration
         all_seeds_histories = []
         
         for seed_idx, seed in enumerate(SEEDS):
             print(f"   > Running Seed {seed} ({seed_idx + 1}/{len(SEEDS)})...")
             
-            # 1. Set Random Seeds
             np.random.seed(seed)
             tf.random.set_seed(seed)
             
-            # 2. Rebuild Model (clean state)
             encoder, decoder, vae = build_vae(dataset.shape[1:], latent_dim=latent_dim, filters=filter_count)
             
             seed_loss_history = []
             
             for epoch in range(EPOCHS):
-                # Train 1 epoch
+         
                 history = vae.fit(x=dataset, y=dataset, epochs=1, batch_size=8, verbose=0)
                 loss = history.history['loss'][0]
                 seed_loss_history.append(loss)
                 
-                # --- VISUALIZATION (Only for the first seed to avoid file spam) ---
                 if seed_idx == 0:
                     coefficient = 6                               
                     latent_vectors = np.random.randn(9, latent_dim) 
@@ -174,22 +165,15 @@ for latent_dim in latent_dims:
             
             all_seeds_histories.append(seed_loss_history)
 
-        # --- PLOTTING AGGREGATED RESULTS ---
-        
-        # Convert to numpy array: shape (3, 100)
         all_seeds_histories = np.array(all_seeds_histories)
         
-        # Calculate statistics
         mean_loss = np.mean(all_seeds_histories, axis=0)
         std_loss = np.std(all_seeds_histories, axis=0)
         epochs_range = range(1, EPOCHS + 1)
         
         plt.figure(figsize=(10, 6))
-        
-        # Plot Mean
         plt.plot(epochs_range, mean_loss, label='Mean Training Loss', color='#1f77b4')
         
-        # Fill Standard Deviation
         plt.fill_between(epochs_range, 
                          mean_loss - std_loss, 
                          mean_loss + std_loss, 
@@ -200,11 +184,10 @@ for latent_dim in latent_dims:
         plt.title(f'VAE Training Loss (Log Scale)\nLatent Dim: {latent_dim}, Filters: {filter_count}, Seeds: {SEEDS}')
         plt.xlabel('Epochs')
         plt.ylabel('Loss (Log Scale)')
-        plt.yscale('log') # Set Y-axis to Log Scale
+        plt.yscale('log') 
         plt.legend(loc='upper right')
         plt.grid(True, which="both", ls="-", alpha=0.4)
         
-        # Save the aggregated plot
         plot_filename = f'results/vae/loss_plot_log_latent{latent_dim}_filter{filter_count}.png'
         plt.savefig(plot_filename)
         plt.close()

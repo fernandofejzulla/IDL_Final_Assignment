@@ -486,22 +486,12 @@ for name, loss in results_t2i_loss.items():
 
 
 
-# ==============================================================================
-# OPTIONAL TASK: Judge/Evaluator Model for Text-to-Image
-# ==============================================================================
-
-print("\n" + "="*60)
-print("STARTING OPTIONAL TASK: SUPERVISED EVALUATOR (THE JUDGE)")
-print("="*60)
-
-# 1. HELPER: Create dataset for the Judge (Digits + Signs + Space)
 def create_classifier_dataset(num_samples_per_class=2000):
     X_cls = []
     y_cls = []
     
     char_map = {char: i for i, char in enumerate(unique_characters)}
     
-    # Add MNIST digits (0-9)
     for digit in range(10):
         inds = np.where(MNIST_labels == digit)[0]
         selected_inds = np.random.choice(inds, num_samples_per_class, replace=True)
@@ -509,8 +499,7 @@ def create_classifier_dataset(num_samples_per_class=2000):
         label = np.zeros((num_samples_per_class, len(unique_characters)))
         label[:, char_map[str(digit)]] = 1
         y_cls.append(label)
-        
-    # Add Signs (+, -)
+       
     for sign in ['+', '-']:
         imgs = generate_images(num_samples_per_class, sign=sign)
         X_cls.append(imgs)
@@ -518,29 +507,23 @@ def create_classifier_dataset(num_samples_per_class=2000):
         label[:, char_map[sign]] = 1
         y_cls.append(label)
 
-    # Add Space (' ')
     space_imgs = np.zeros((num_samples_per_class, 28, 28))
     X_cls.append(space_imgs)
     label = np.zeros((num_samples_per_class, len(unique_characters)))
     label[:, char_map[' ']] = 1
     y_cls.append(label)
     
-    # Concatenate and normalize
     X_cls = np.concatenate(X_cls, axis=0)
     y_cls = np.concatenate(y_cls, axis=0)
     
-    # Normalize images to 0-1
     X_cls = X_cls.astype('float32') / 255.0
     
-    # Expand dims for CNN (N, 28, 28, 1)
     if X_cls.ndim == 3:
         X_cls = np.expand_dims(X_cls, -1)
         
     return X_cls, y_cls
 
-# 2. HELPER: Build the Judge CNN
 def build_judge_model():
-    # Simple but accurate CNN
     model = tf.keras.Sequential([
         Input(shape=(28, 28, 1)),
         Conv2D(32, (3, 3), activation='relu'),
@@ -549,13 +532,12 @@ def build_judge_model():
         tf.keras.layers.MaxPooling2D((2, 2)),
         Flatten(),
         Dense(128, activation='relu'),
-        Dense(len(unique_characters), activation='softmax') # 13 classes
+        Dense(len(unique_characters), activation='softmax')
     ])
     opt = tf.keras.optimizers.Adam(learning_rate=0.001)
     model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
-# 3. HELPER: Evaluation Function
 def evaluate_text2img_with_judge(t2i_model, judge_model, X_text_test, y_text_test_str):
     print("\nGenerating images from test set...")
     gen_images = t2i_model.predict(X_text_test, verbose=0)
@@ -565,23 +547,18 @@ def evaluate_text2img_with_judge(t2i_model, judge_model, X_text_test, y_text_tes
         
     N, seq_len, H, W, C = gen_images.shape
     
-    # Flatten sequence to classify individual characters
     flat_images = gen_images.reshape(N * seq_len, H, W, C)
     
-    # Predict
     flat_preds = judge_model.predict(flat_images, verbose=0)
     flat_indices = np.argmax(flat_preds, axis=1)
     
-    # Reshape back
     seq_indices = flat_indices.reshape(N, seq_len)
     
-    # Decode
     pred_strings = []
     for row in seq_indices:
         s = "".join([unique_characters[idx] for idx in row])
         pred_strings.append(s)
         
-    # Calculate Accuracy
     correct = 0
     for pred, true in zip(pred_strings, y_text_test_str):
         if pred == true:
@@ -590,44 +567,25 @@ def evaluate_text2img_with_judge(t2i_model, judge_model, X_text_test, y_text_tes
     
     return acc, pred_strings
 
-# --- EXECUTION ---
-
-# A. Generate Judge Data
 print("Generating classifier training data...")
 X_judge, y_judge = create_classifier_dataset()
 X_judge_tr, X_judge_te, y_judge_tr, y_judge_te = train_test_split(X_judge, y_judge, test_size=0.1)
 
-# B. Train Judge
 print("Training the Judge Model...")
 judge_model = build_judge_model()
 judge_model.fit(X_judge_tr, y_judge_tr, validation_data=(X_judge_te, y_judge_te), epochs=100, batch_size=64, verbose=1)
 
-# C. Evaluate the LAST trained Text-to-Image model (from the previous loop)
-# We use the test set from the last split in memory (likely the 10/90 split)
-print(f"\nEvaluating the final Text-to-Image model...")
-
-# Convert the existing test set (Xte_t2i) to strings for comparison if not already done
-# Note: Xte_t2i is the one-hot input. We need the ground truth strings.
-# The variable 'yte_t2i' is images. We need the text labels corresponding to Xte_t2i.
-# We can recover them from Xte_t2i because X->Y in this task (Text->Image), 
-# but we need the ANSWER string.
-# Easier way: Decode Xte_t2i to see the query, calculate the math, get the result string.
-# OR: Just re-split the original text data using the same random_state to match indices.
-# (Since we used random_state=42 in the loop, we can replicate the split here).
-
 _, X_test_oh_judge, _, y_test_img_judge = train_test_split(
     X_text_onehot, y_img, test_size=0.90, random_state=42 # Matching the 10/90 split
 )
-# We need the TEXT answers for these specific samples.
 _, _, _, y_test_str_judge_oh = train_test_split(
     X_text_onehot, y_text_onehot, test_size=0.90, random_state=42
 )
 y_test_strings_judge = decode_labels(y_test_str_judge_oh)
 
-# Run Evaluation
 judge_acc, judge_preds = evaluate_text2img_with_judge(t2i_model, judge_model, X_test_oh_judge, y_test_strings_judge)
 
-print(f"\n✅ Final Text-to-Image Generative Accuracy: {judge_acc:.4f}")
+print(f"Final Text-to-Image Generative Accuracy: {judge_acc:.4f}")
 
 # Show examples
 print("\nJudge Examples (True vs Predicted by Judge reading the Image):")
@@ -635,45 +593,26 @@ for i in range(5):
     print(f"True Answer: '{y_test_strings_judge[i]}' | Generated Image read as: '{judge_preds[i]}'")
 
 
-# ==============================================================================
-# PLOTTING: Compare Training & Validation Loss for All 3 Models
-# ==============================================================================
-# ==============================================================================
-# PLOTTING: Accuracy vs Val Accuracy (3 Splits x 3 Models)
-# ==============================================================================
-
-# ==============================================================================
-# PLOTTING: Combined Accuracy per Split (3 Models on 1 Graph)
-# ==============================================================================
-
-# ==============================================================================
-# PLOTTING: Combined Accuracy per Split (IN A ROW)
-# ==============================================================================
-
 def plot_combined_in_row(histories_dict, filename="combined_splits_row.png"):
     splits = ["50/50", "25/75", "10/90"]
     
-    # Define colors
     model_configs = [
         ("Text-to-Text", "blue"),
         ("Image-to-Text", "orange"),
         ("Text-to-Image", "green")
     ]
     
-    # Create a grid with 1 Row and 3 Columns
     fig, axes = plt.subplots(1, 3, figsize=(20, 6))
     fig.suptitle("Model Performance Comparison by Split", fontsize=16, fontweight='bold')
 
     for i, split in enumerate(splits):
-        ax = axes[i]  # Get the specific subplot for this split
+        ax = axes[i] 
         ax.set_title(f"Split: {split}", fontsize=14)
         
-        # Plot each model on this subplot
         for model_name, color in model_configs:
             if split in histories_dict and model_name in histories_dict[split]:
                 hist = histories_dict[split][model_name]
                 
-                # Metric key detection
                 acc_key = 'accuracy' if 'accuracy' in hist.history else 'binary_accuracy'
                 val_acc_key = 'val_accuracy' if 'val_accuracy' in hist.history else 'val_binary_accuracy'
                 
@@ -682,11 +621,9 @@ def plot_combined_in_row(histories_dict, filename="combined_splits_row.png"):
                     val_acc = hist.history.get(val_acc_key, [])
                     epochs = range(1, len(acc) + 1)
                     
-                    # Plot Training (Solid)
                     ax.plot(epochs, acc, color=color, linestyle='-', linewidth=1.5, 
                              label=f'{model_name} Train')
                     
-                    # Plot Validation (Dashed)
                     if len(val_acc) > 0:
                         ax.plot(epochs, val_acc, color=color, linestyle='--', linewidth=1.5, 
                                  label=f'{model_name} Val')
@@ -694,40 +631,25 @@ def plot_combined_in_row(histories_dict, filename="combined_splits_row.png"):
         ax.set_xlabel("Epochs")
         ax.set_ylabel("Accuracy")
         ax.grid(True, alpha=0.5)
-        # Only put legend on the first plot to avoid clutter, or put it on all
         if i == 0:
             ax.legend(loc='lower right')
 
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust for main title
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.savefig(filename)
     print(f"\n✅ Saved side-by-side plot: {filename}")
     plt.show()
 
-# Run this instead
 plot_combined_in_row(all_histories)
-
-# ==============================================================================
-# TASK 2 PART 5: DEEP MODELS (Additional LSTM Layers)
-# ==============================================================================
-
-print("\n" + "="*60)
-print("STARTING PART 5: DEEP MODEL COMPARISON (25/75 SPLIT)")
-print("="*60)
-
-# --- A. Define Deep Versions of the Models ---
 
 def build_img2text_model_deep(img_shape, answer_len=3, num_chars=13, hidden_size=256):
     """Adds an extra LSTM layer to the Encoder"""
     img_inputs = Input(shape=img_shape)
     x = TimeDistributed(Flatten())(img_inputs)
     
-    # Encoder Layer 1: Returns full sequence
     x = LSTM(hidden_size, return_sequences=True)(x)
     
-    # Encoder Layer 2: Returns final state (Compressed Vector)
     enc = LSTM(hidden_size)(x)
 
-    # Decoder (Standard)
     dec = RepeatVector(answer_len)(enc)
     dec = LSTM(hidden_size, return_sequences=True)(dec)
     outputs = TimeDistributed(Dense(num_chars, activation='softmax'))(dec)
@@ -743,13 +665,10 @@ def build_text2img_model_deep(query_len, num_chars, answer_len, answer_img_shape
 
     text_inputs = Input(shape=(query_len, num_chars))
     
-    # Encoder Layer 1: Returns full sequence
     x = LSTM(hidden_size, return_sequences=True)(text_inputs)
     
-    # Encoder Layer 2: Final state
     enc = LSTM(hidden_size)(x)
 
-    # Decoder
     x = RepeatVector(answer_len)(enc)
     x = LSTM(hidden_size, return_sequences=True)(x)
     x = TimeDistributed(Dense(flat_dim, activation='sigmoid'))(x)
@@ -760,14 +679,10 @@ def build_text2img_model_deep(query_len, num_chars, answer_len, answer_img_shape
                   loss='binary_crossentropy', metrics=['accuracy'])
     return model
 
-# --- B. Train Deep Models on the 25/75 Split ---
-# We use 25/75 because it's hard enough to show differences, but has enough data for deep models.
-
 split_name = "25/75"
 test_pct = 0.75
 deep_histories = {}
 
-# 1. Deep Image-to-Text
 print(f"\nTraining Deep Image-to-Text on {split_name}...")
 Xtr_i2t, Xte_i2t, ytr_i2t, yte_i2t = train_test_split(X_img, y_text_onehot, test_size=test_pct, random_state=42)
 img_shape = Xtr_i2t.shape[1:]
@@ -776,15 +691,12 @@ deep_i2t = build_img2text_model_deep(img_shape, answer_len=3, num_chars=13)
 hist_deep_i2t = deep_i2t.fit(Xtr_i2t, ytr_i2t, validation_split=0.1, epochs=40, batch_size=128, verbose=1)
 deep_histories['Image-to-Text'] = hist_deep_i2t
 
-# 2. Deep Text-to-Image
 print(f"\nTraining Deep Text-to-Image on {split_name}...")
 Xtr_t2i, Xte_t2i, ytr_t2i, yte_t2i = train_test_split(X_text_onehot, y_img, test_size=test_pct, random_state=42)
 
 deep_t2i = build_text2img_model_deep(query_len, num_chars, answer_len, answer_img_shape)
 hist_deep_t2i = deep_t2i.fit(Xtr_t2i, ytr_t2i, validation_split=0.1, epochs=40, batch_size=128, verbose=1)
 deep_histories['Text-to-Image'] = hist_deep_t2i
-
-# --- C. Compare Shallow vs Deep (Plotting) ---
 
 def plot_deep_comparison(shallow_hist_dict, deep_hist_dict, split_key="25/75"):
     models_to_compare = ['Image-to-Text', 'Text-to-Image']
@@ -908,6 +820,4 @@ def plot_shallow_vs_deep_all_models(shallow_hist_dict, deep_hist_dict, split_key
     print("\n✅ Saved comparison plot to regular_vs_deep_5050.png")
     plt.show()
 
-# Run Plotter
-# Note: 'all_histories' comes from your earlier main loops
 plot_shallow_vs_deep_all_models(all_histories, deep_histories_5050, split_key="50/50")

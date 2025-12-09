@@ -8,7 +8,6 @@ import os
 import random
 import matplotlib.pyplot as plt
 
-# --- 1. User's Data Loading Function ---
 def load_real_samples(image_dir, scale=False, img_size=64, limit=20000):
     images = []
     count = 0
@@ -38,7 +37,6 @@ def load_real_samples(image_dir, scale=False, img_size=64, limit=20000):
 
     return X
 
-# --- 2. Utils: Weight Initialization & Seeding ---
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
@@ -55,7 +53,6 @@ def set_seed(seed):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
-# --- 3. PyTorch Model Definitions ---
 class Generator(nn.Module):
     def __init__(self, latent_dim=100, filters=128):
         super(Generator, self).__init__()
@@ -96,7 +93,6 @@ class Discriminator(nn.Module):
         x = torch.flatten(x, start_dim=1)
         return self.sigmoid(self.fc(x))
 
-# --- 4. Training Setup ---
 
 def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -117,7 +113,6 @@ def train():
     lrD = 0.00002
     epochs = 100
 
-    # 1. Load Data ONCE
     print("Loading data...")
     X_train = load_real_samples(img_dir, scale=False, img_size=64)
     if len(X_train) == 0:
@@ -128,21 +123,16 @@ def train():
     full_dataset = TensorDataset(tensor_x)
     print(f"Data loaded. Total images: {len(full_dataset)}")
 
-    # Data structure to store all runs: 
-    # experiment_results[config_name]['G'] = [ [run1_losses], [run2_losses], [run3_losses] ]
     experiment_results = {}
-
-    # 2. Loop through configurations
     for batch_size in batch_sizes_list:
         for latent_dim in latent_dims_list:
             
             config_name = f"bs{batch_size}_ld{latent_dim}"
             experiment_results[config_name] = {'G': [], 'D': []}
             
-            # 3. Loop through Seeds
             for seed in seeds:
                 print(f"\n--- Starting: {config_name} | Seed: {seed} ---")
-                set_seed(seed) # Set random state
+                set_seed(seed) 
 
                 dataloader = DataLoader(full_dataset, batch_size=batch_size, shuffle=True)
                 netG = Generator(latent_dim=latent_dim).to(device)
@@ -200,11 +190,9 @@ def train():
                     if epoch % 10 == 0:
                         print(f"[{config_name}] [Seed {seed}] [Epoch {epoch}] D: {avg_d:.4f} G: {avg_g:.4f}")
 
-                # Save run results
                 experiment_results[config_name]['G'].append(seed_G_losses)
                 experiment_results[config_name]['D'].append(seed_D_losses)
 
-                # Save image samples (per seed, so we don't overwrite)
                 with torch.no_grad():
                     fake_final = netG(fixed_noise).detach().cpu()
                     samples = fake_final.permute(0, 2, 3, 1).numpy()
@@ -217,14 +205,9 @@ def train():
                     plt.savefig(f"results/gen_{config_name}_seed{seed}.png")
                     plt.close(fig)
 
-            # --- 4. AGGREGATED PLOTTING (Mean + Std + Log Scale) ---
-            print(f"Generating aggregate plots for {config_name}...")
-            
-            # Convert list of lists to numpy array: Shape (3, epochs)
             g_data = np.array(experiment_results[config_name]['G']) 
             d_data = np.array(experiment_results[config_name]['D'])
             
-            # Calculate Mean and Std
             g_mean = np.mean(g_data, axis=0)
             g_std = np.std(g_data, axis=0)
             d_mean = np.mean(d_data, axis=0)
@@ -234,11 +217,9 @@ def train():
 
             plt.figure(figsize=(10, 6))
             
-            # Generator Plot
             plt.plot(epochs_range, g_mean, label="Generator Mean", color="blue")
             plt.fill_between(epochs_range, g_mean - g_std, g_mean + g_std, color="blue", alpha=0.2)
             
-            # Discriminator Plot
             plt.plot(epochs_range, d_mean, label="Discriminator Mean", color="orange")
             plt.fill_between(epochs_range, d_mean - d_std, d_mean + d_std, color="orange", alpha=0.2)
             
@@ -247,7 +228,6 @@ def train():
             plt.ylabel("Loss (Log Scale)")
             plt.legend()
             
-            # --- Logarithmic Scale ---
             plt.yscale('log')
             plt.grid(True, which="both", ls="-", alpha=0.2)
             
