@@ -826,3 +826,88 @@ def plot_deep_comparison(shallow_hist_dict, deep_hist_dict, split_key="25/75"):
 # Run the comparison plot
 # Note: This relies on 'all_histories' being populated from your previous loops
 plot_deep_comparison(all_histories, deep_histories, split_key="25/75")
+
+
+# ==============================================================================
+# FINAL COMPARISON: Regular (Shallow) vs Deep (LSTM) on 50/50 Split
+# ==============================================================================
+
+print("\n" + "="*60)
+print("TRAINING DEEP MODELS ON 50/50 SPLIT FOR FINAL COMPARISON")
+print("="*60)
+
+# Dictionary to store the new deep models trained on 50/50
+deep_histories_5050 = {}
+split_name = "50/50"
+test_pct = 0.50
+
+# --- 1. Train Deep Text-to-Text (50/50) ---
+print(f"\nTraining Deep Text-to-Text ({split_name})...")
+Xtr, Xte, ytr, yte = train_test_split(X_text_onehot, y_text_onehot, test_size=test_pct, random_state=42)
+
+# Re-build to ensure fresh weights
+deep_t2t = build_text2text_model_deep(hidden_size=256)
+hist_deep_t2t = deep_t2t.fit(Xtr, ytr, validation_split=0.1, epochs=50, batch_size=128, verbose=1)
+deep_histories_5050['Text-to-Text'] = hist_deep_t2t
+
+
+# --- 2. Train Deep Image-to-Text (50/50) ---
+print(f"\nTraining Deep Image-to-Text ({split_name})...")
+Xtr_i2t, Xte_i2t, ytr_i2t, yte_i2t = train_test_split(X_img, y_text_onehot, test_size=test_pct, random_state=42)
+img_shape = Xtr_i2t.shape[1:]
+
+deep_i2t = build_img2text_model_deep(img_shape, answer_len=3, num_chars=13)
+hist_deep_i2t = deep_i2t.fit(Xtr_i2t, ytr_i2t, validation_split=0.1, epochs=50, batch_size=128, verbose=1)
+deep_histories_5050['Image-to-Text'] = hist_deep_i2t
+
+
+# --- 3. Train Deep Text-to-Image (50/50) ---
+print(f"\nTraining Deep Text-to-Image ({split_name})...")
+Xtr_t2i, Xte_t2i, ytr_t2i, yte_t2i = train_test_split(X_text_onehot, y_img, test_size=test_pct, random_state=42)
+
+deep_t2i = build_text2img_model_deep(query_len, num_chars, answer_len, answer_img_shape)
+hist_deep_t2i = deep_t2i.fit(Xtr_t2i, ytr_t2i, validation_split=0.1, epochs=50, batch_size=128, verbose=1)
+deep_histories_5050['Text-to-Image'] = hist_deep_t2i
+
+
+# --- 4. Plotting Function ---
+
+def plot_shallow_vs_deep_all_models(shallow_hist_dict, deep_hist_dict, split_key="50/50"):
+    models = ["Text-to-Text", "Image-to-Text", "Text-to-Image"]
+    
+    fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+    fig.suptitle(f"Regular vs Deep Architecture Accuracy (Split: {split_key})", fontsize=16, fontweight='bold')
+
+    for i, model_name in enumerate(models):
+        ax = axes[i]
+        
+        # 1. Plot Shallow (Regular)
+        if split_key in shallow_hist_dict and model_name in shallow_hist_dict[split_key]:
+            hist = shallow_hist_dict[split_key][model_name]
+            val_acc_key = 'val_accuracy' if 'val_accuracy' in hist.history else 'val_binary_accuracy'
+            ax.plot(hist.history[val_acc_key], 'b--', label='Regular Val Acc', linewidth=1.5)
+        else:
+            print(f"Warning: Missing Shallow history for {model_name}")
+
+        # 2. Plot Deep (LSTM)
+        if model_name in deep_hist_dict:
+            hist = deep_hist_dict[model_name]
+            val_acc_key = 'val_accuracy' if 'val_accuracy' in hist.history else 'val_binary_accuracy'
+            ax.plot(hist.history[val_acc_key], 'r-', label='Deep Val Acc', linewidth=2)
+        else:
+            print(f"Warning: Missing Deep history for {model_name}")
+            
+        ax.set_title(model_name, fontsize=14)
+        ax.set_xlabel("Epochs")
+        ax.set_ylabel("Validation Accuracy")
+        ax.grid(True, alpha=0.5)
+        ax.legend()
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig("regular_vs_deep_5050.png")
+    print("\n✅ Saved comparison plot to regular_vs_deep_5050.png")
+    plt.show()
+
+# Run Plotter
+# Note: 'all_histories' comes from your earlier main loops
+plot_shallow_vs_deep_all_models(all_histories, deep_histories_5050, split_key="50/50")
