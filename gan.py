@@ -93,28 +93,28 @@ class Discriminator(nn.Module):
         x = torch.flatten(x, start_dim=1)
         return self.sigmoid(self.fc(x))
 
+import json
 
 def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
     
-    img_dir = "/data/s4561341/cats/" 
     if not os.path.exists("results"):
         os.makedirs("results")
 
-    # Experiment Configurations
     latent_dims_list = [128, 256]
     batch_sizes_list = [64, 128]
     
-    # --- NEW: Define Seeds ---
     seeds = [42, 101, 999] 
     
     lrG = 0.0002
     lrD = 0.00002
     epochs = 100
 
-    print("Loading data...")
-    X_train = load_real_samples(img_dir, scale=False, img_size=64)
+    with open("config.json", "r") as file:
+        config = json.load(file)
+
+    X_train = load_real_samples(config["data_folder"], scale=False, img_size=64)
     if len(X_train) == 0:
         print("No images loaded. Exiting.")
         return

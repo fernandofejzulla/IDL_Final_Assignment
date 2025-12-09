@@ -10,7 +10,6 @@ import cv2
 from tensorflow.keras.layers import Dense, Flatten, Conv2D, Conv2DTranspose, Reshape
 
 
-
 def load_real_samples(image_dir, scale=False, img_size=64, limit=20000):
     images = []
     count = 0
@@ -34,8 +33,11 @@ def load_real_samples(image_dir, scale=False, img_size=64, limit=20000):
         X = (X - 127.5) * 2
     return X / 255.0
 
+import json
+with open("config.json", "r") as file:
+    config = json.load(file)
 
-dataset = load_real_samples("/data/s4561341/cats/")
+dataset = load_real_samples(config["data_folder"])
 
 
 
@@ -50,6 +52,8 @@ def grid_plot(images, latent_dim, filters, epoch='', name='', n=3, save=False, s
     fig = plt.gcf()
     fig.suptitle(name + '  '+ str(epoch), fontsize=14)
     if save:
+        if not os.path.exists("results"):
+            os.makedirs("results")
         filename = f"results/{model_name}/latent{latent_dim}_filters{filters}_epoch{epoch+1}.png"
         plt.savefig(filename)
         plt.close()
