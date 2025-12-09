@@ -646,27 +646,34 @@ for i in range(5):
 # PLOTTING: Combined Accuracy per Split (3 Models on 1 Graph)
 # ==============================================================================
 
-def plot_combined_per_split(histories_dict):
+# ==============================================================================
+# PLOTTING: Combined Accuracy per Split (IN A ROW)
+# ==============================================================================
+
+def plot_combined_in_row(histories_dict, filename="combined_splits_row.png"):
     splits = ["50/50", "25/75", "10/90"]
     
-    # Define colors for each model so they are distinct
-    # Format: (Model Name, Color)
+    # Define colors
     model_configs = [
         ("Text-to-Text", "blue"),
         ("Image-to-Text", "orange"),
         ("Text-to-Image", "green")
     ]
+    
+    # Create a grid with 1 Row and 3 Columns
+    fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+    fig.suptitle("Model Performance Comparison by Split", fontsize=16, fontweight='bold')
 
-    for split in splits:
-        plt.figure(figsize=(10, 6))
-        plt.title(f"Combined Model Accuracy (Split: {split})", fontsize=14, fontweight='bold')
+    for i, split in enumerate(splits):
+        ax = axes[i]  # Get the specific subplot for this split
+        ax.set_title(f"Split: {split}", fontsize=14)
         
-        # Plot each model on this single figure
+        # Plot each model on this subplot
         for model_name, color in model_configs:
             if split in histories_dict and model_name in histories_dict[split]:
                 hist = histories_dict[split][model_name]
                 
-                # key detection
+                # Metric key detection
                 acc_key = 'accuracy' if 'accuracy' in hist.history else 'binary_accuracy'
                 val_acc_key = 'val_accuracy' if 'val_accuracy' in hist.history else 'val_binary_accuracy'
                 
@@ -675,30 +682,29 @@ def plot_combined_per_split(histories_dict):
                     val_acc = hist.history.get(val_acc_key, [])
                     epochs = range(1, len(acc) + 1)
                     
-                    # Plot Training Line (Solid)
-                    plt.plot(epochs, acc, color=color, linestyle='-', linewidth=1.5, 
+                    # Plot Training (Solid)
+                    ax.plot(epochs, acc, color=color, linestyle='-', linewidth=1.5, 
                              label=f'{model_name} Train')
                     
-                    # Plot Validation Line (Dashed)
+                    # Plot Validation (Dashed)
                     if len(val_acc) > 0:
-                        plt.plot(epochs, val_acc, color=color, linestyle='--', linewidth=1.5, 
+                        ax.plot(epochs, val_acc, color=color, linestyle='--', linewidth=1.5, 
                                  label=f'{model_name} Val')
-            else:
-                print(f"Skipping {model_name} for split {split} (Data not found)")
-
-        plt.xlabel("Epochs")
-        plt.ylabel("Accuracy")
-        plt.grid(True, alpha=0.5)
-        plt.legend()
         
-        # Save individually
-        filename = f"combined_accuracy_{split.replace('/', '')}.png"
-        plt.savefig(filename)
-        print(f"✅ Saved combined plot: {filename}")
-        plt.show()
+        ax.set_xlabel("Epochs")
+        ax.set_ylabel("Accuracy")
+        ax.grid(True, alpha=0.5)
+        # Only put legend on the first plot to avoid clutter, or put it on all
+        if i == 0:
+            ax.legend(loc='lower right')
 
-# Run the new plotter
-plot_combined_per_split(all_histories)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust for main title
+    plt.savefig(filename)
+    print(f"\n✅ Saved side-by-side plot: {filename}")
+    plt.show()
+
+# Run this instead
+plot_combined_in_row(all_histories)
 
 # ==============================================================================
 # TASK 2 PART 5: DEEP MODELS (Additional LSTM Layers)
