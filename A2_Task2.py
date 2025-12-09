@@ -226,7 +226,7 @@ all_histories = {
 }
 results_t2t = {}  
 
-cb = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")]
+cb = [EarlyStopping(patience=10, restore_best_weights=True, monitor="val_loss")]
 
 for name, test_size in splits.items():
     print(f"\n--- T2T SPLIT {name} ---")
@@ -285,7 +285,7 @@ Xtr_deep, Xte_deep, ytr_deep, yte_deep = train_test_split(
 
 deep_model = build_text2text_model_deep(hidden_size=256)
 
-cb_deep = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")]
+cb_deep = [EarlyStopping(patience=10, restore_best_weights=True, monitor="val_loss")]
 
 hist_deep = deep_model.fit(
     Xtr_deep, ytr_deep,
@@ -340,7 +340,7 @@ splits = {
 }
 
 results_i2t = {}
-cb = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")] 
+cb = [EarlyStopping(patience=10, restore_best_weights=True, monitor="val_loss")] 
 
 for name, test_size in splits.items():
     print(f"\n--- I2T SPLIT {name} ---")
@@ -454,7 +454,7 @@ splits_t2i = {
     "10/90": 0.90
 }
 results_t2i_loss = {}
-cb = [EarlyStopping(patience=3, restore_best_weights=True, monitor="val_loss")]
+cb = [EarlyStopping(patience=10, restore_best_weights=True, monitor="val_loss")]
 
 for name, test_size in splits_t2i.items():
     print(f"\n--- T2I SPLIT {name} ---")
