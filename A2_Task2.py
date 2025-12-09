@@ -17,7 +17,7 @@ def generate_images(number_of_images=50, sign='-'):
     blank_images = np.zeros([number_of_images, 28, 28])  # Dimensionality matches the size of MNIST images (28x28)
     x = np.random.randint(12, 16, (number_of_images, 2)) # Randomized x coordinates
     y1 = np.random.randint(6, 10, number_of_images)       # Randomized y coordinates
-    y2 = np.random.randint(18, 22, number_of_images)     # -||-
+    y2 = np.random.randint(18, 22, number_of_images)     
 
     for i in range(number_of_images): # Generate n different images
         cv2.line(blank_images[i], (y1[i], x[i,0]), (y2[i], x[i, 1]), (255,0,0), 2, cv2.LINE_AA)     # Draw lines with randomized coordinates
