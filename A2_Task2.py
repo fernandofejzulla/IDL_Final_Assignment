@@ -96,14 +96,12 @@ def to_padded_chars(integer, max_len=3, pad_right=False):
     else:
         return padding + str(integer)
 
-# Illustrate the generated query/answer pairs
+unique_characters = '0123456789+- '       
+highest_integer = 99                     
 
-unique_characters = '0123456789+- '       # All unique characters that are used in the queries 
-highest_integer = 99                      # Highest value of integers contained in the queries
-
-max_int_length = len(str(highest_integer))# Maximum number of characters in an integer
-max_query_length = max_int_length * 2 + 1 # Maximum length of the query string 
-max_answer_length = 3    # Maximum length of the answer string 
+max_int_length = len(str(highest_integer))
+max_query_length = max_int_length * 2 + 1 
+max_answer_length = 3    
 
 # Create the data
 (MNIST_data, MNIST_labels), _ = tf.keras.datasets.mnist.load_data()
