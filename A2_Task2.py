@@ -2,7 +2,6 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import cv2
 import numpy as np
-import tensorflow as tf
 import random
 from sklearn.model_selection import train_test_split
 
@@ -10,11 +9,10 @@ from tensorflow.keras.layers import Dense, RNN, LSTM, Flatten, TimeDistributed, 
 from tensorflow.keras.layers import RepeatVector, Conv2D, SimpleRNN, GRU, Reshape, ConvLSTM2D, Conv2DTranspose
 from tensorflow.keras.models import Model
 from scipy.ndimage import rotate
-import tensorflow as tf
 tf.config.run_functions_eagerly(True)
 
 
-# Create plus/minus operand signs
+
 def generate_images(number_of_images=50, sign='-'):
     blank_images = np.zeros([number_of_images, 28, 28])  # Dimensionality matches the size of MNIST images (28x28)
     x = np.random.randint(12, 16, (number_of_images, 2)) # Randomized x coordinates
@@ -100,20 +98,20 @@ def to_padded_chars(integer, max_len=3, pad_right=False):
 
 # Illustrate the generated query/answer pairs
 
-unique_characters = '0123456789+- '       # All unique characters that are used in the queries (13 in total: digits 0-9, 2 operands [+, -], and a space character ' '.)
+unique_characters = '0123456789+- '       # All unique characters that are used in the queries 
 highest_integer = 99                      # Highest value of integers contained in the queries
 
 max_int_length = len(str(highest_integer))# Maximum number of characters in an integer
-max_query_length = max_int_length * 2 + 1 # Maximum length of the query string (consists of two integers and an operand [e.g. '22+10'])
-max_answer_length = 3    # Maximum length of the answer string (the longest resulting query string is ' 1-99'='-98')
+max_query_length = max_int_length * 2 + 1 # Maximum length of the query string 
+max_answer_length = 3    # Maximum length of the answer string 
 
-# Create the data (might take around a minute)
+# Create the data
 (MNIST_data, MNIST_labels), _ = tf.keras.datasets.mnist.load_data()
 X_text, X_img, y_text, y_img = create_data(highest_integer)
 print(X_text.shape, X_img.shape, y_text.shape, y_img.shape)
 
 
-## Display the samples that were created
+# Display the samples that were created
 def display_sample(n):
     labels = ['X_img:', 'y_img:']
     for i, data in enumerate([X_img, y_img]):
@@ -128,9 +126,7 @@ def display_sample(n):
 for _ in range(10):
     display_sample(np.random.randint(0, 10000, 1)[0])
 
-    # One-hot encoding/decoding the text queries/answers so that they can be processed using RNNs
-# You should use these functions to convert your strings and read out the output of your networks
-
+# One-hot encoding/decoding the text queries/answers so that they can be processed using RNNs
 def encode_labels(labels, max_len=3):
   n = len(labels)
   length = len(labels[0])
@@ -160,21 +156,15 @@ print(X_text_onehot.shape, y_text_onehot.shape)
 
 def build_text2text_model():
 
-    # We start by initializing a sequential model
+    # Initialise sequential model
     text2text = tf.keras.Sequential()
 
-    # "Encode" the input sequence using an RNN, producing an output of size 256.
-    # In this case the size of our input vectors is [5, 13] as we have queries of length 5 and 13 unique characters. Each of these 5 elements in the query will be fed to the network one by one,
-    # as shown in the image above (except with 5 elements).
-    # Hint: In other applications, where your input sequences have a variable length (e.g. sentences), you would use input_shape=(None, unique_characters).
+    # Encode the input sequence using an RNN, producing an output of size 256.
     text2text.add(LSTM(256, input_shape=(None, len(unique_characters))))
 
-    # As the decoder RNN's input, repeatedly provide with the last output of RNN for each time step. Repeat 3 times as that's the maximum length of the output (e.g. '  1-99' = '-98')
-    # when using 2-digit integers in queries. In other words, the RNN will always produce 3 characters as its output.
+    # As the decoder RNN's input, repeatedly provide with the last output of RNN for each time step. Repeat 3 times as that's the maximum length of the output
     text2text.add(RepeatVector(max_answer_length))
 
-    # By setting return_sequences to True, return not only the last output but all the outputs so far in the form of (num_samples, timesteps, output_dim). This is necessary as TimeDistributed in the below expects
-    # the first dimension to be the timesteps.
     text2text.add(LSTM(256, return_sequences=True))
 
     # Apply a dense layer to the every temporal slice of an input. For each of step of the output sequence, decide which character should be chosen.
@@ -198,7 +188,7 @@ def exact_string_text2text(model, X, y_onehot, n_show_wrong=8):
     true_txt = decode_labels(y_onehot)
 
     acc = np.mean([p == t for p, t in zip(pred_txt, true_txt)])
-    print(f"\n➡️ text-to-text string accuracy: {acc:.4f}")
+    print(f"\ntext-to-text string accuracy: {acc:.4f}")
 
     print("Some mistakes:")
     shown = 0
@@ -218,7 +208,6 @@ splits = {
     "10/90": 0.90
 }
 # Master dictionary to store history for all splits and models
-# Structure: all_histories[split_name][model_name] = history_object
 all_histories = {
     "50/50": {},
     "25/75": {},
@@ -229,7 +218,7 @@ results_t2t = {}
 cb = [EarlyStopping(patience=10, restore_best_weights=True, monitor="val_loss")]
 
 for name, test_size in splits.items():
-    print(f"\n--- T2T SPLIT {name} ---")
+    print(f"\nT2T SPLIT {name}")
     Xtr, Xte, ytr, yte = train_test_split(X_text_onehot, y_text_onehot, test_size=test_size, random_state=42)
     
     model = build_text2text_model()
@@ -242,16 +231,16 @@ for name, test_size in splits.items():
     acc, _, _ = exact_string_text2text(model, Xte, yte)
     results_t2t[name] = acc
 
-print("\n\n FINAL TEXT→TEXT ACCURACY SUMMARY:")
+print("\n\n FINAL TEXT2TEXT ACCURACY SUMMARY:")
 for name, acc in results_t2t.items():
-    print(f"{name} split → accuracy = {acc:.4f}")
+    print(f"{name} split to accuracy = {acc:.4f}")
 
 """ Deeper model for text-to-text"""
 
 def build_text2text_model_deep(hidden_size=256):
-    input_len = X_text_onehot.shape[1]     # e.g. 5
-    num_chars = X_text_onehot.shape[2]     # e.g. 13
-    answer_len = y_text_onehot.shape[1]    # e.g. 3
+    input_len = X_text_onehot.shape[1]    
+    num_chars = X_text_onehot.shape[2]   
+    answer_len = y_text_onehot.shape[1]   
 
     enc_inputs = Input(shape=(input_len, num_chars))
 
@@ -259,7 +248,7 @@ def build_text2text_model_deep(hidden_size=256):
     x = LSTM(hidden_size, return_sequences=True)(enc_inputs)
     enc_state = LSTM(hidden_size)(x)
 
-    # Decoder (same as before)
+    # Decoder 
     dec = RepeatVector(answer_len)(enc_state)
     dec = LSTM(hidden_size, return_sequences=True)(dec)
     outputs = TimeDistributed(Dense(num_chars, activation='softmax'))(dec)
@@ -274,7 +263,7 @@ def build_text2text_model_deep(hidden_size=256):
     return model
 
 print("\n" + "="*60)
-print("TRAINING DEEP TEXT→TEXT MODEL (extra LSTM layer) – 50/50 split")
+print("TRAINING DEEP TEXT2TEXT MODEL (extra LSTM layer) – 50/50 split")
 print("="*60)
 
 Xtr_deep, Xte_deep, ytr_deep, yte_deep = train_test_split(
@@ -343,7 +332,7 @@ results_i2t = {}
 cb = [EarlyStopping(patience=10, restore_best_weights=True, monitor="val_loss")] 
 
 for name, test_size in splits.items():
-    print(f"\n--- I2T SPLIT {name} ---")
+    print(f"\nI2T SPLIT {name}")
     Xtr_i2t, Xte_i2t, ytr_i2t, yte_i2t = train_test_split(X_img, y_text_onehot, test_size=test_size, random_state=42)
 
     img_shape = Xtr_i2t.shape[1:]
@@ -357,9 +346,9 @@ for name, test_size in splits.items():
     acc_i2t, _, _ = exact_string_text2text(i2t_model, Xte_i2t, yte_i2t, n_show_wrong=8)
     results_i2t[name] = acc_i2t
 
-print("\n\n FINAL IMAGE→TEXT ACCURACY SUMMARY:")
+print("\n\n FINAL IMAGE2TEXT ACCURACY SUMMARY:")
 for name, acc in results_i2t.items():
-    print(f"{name} split → accuracy = {acc:.4f}")
+    print(f"{name} split to accuracy = {acc:.4f}")
 
 """ Build the text-to-image model"""
 
@@ -383,11 +372,11 @@ def build_text2img_model_full(query_len,
                               hidden_size=256):
     flat_dim = int(np.prod(answer_img_shape))
 
-    text_inputs = Input(shape=(query_len, num_chars))   # (batch, T_query, num_chars)
+    text_inputs = Input(shape=(query_len, num_chars))   
     enc = LSTM(hidden_size)(text_inputs)
 
-    x = RepeatVector(answer_len)(enc)                   # (batch, T_answer, hidden_size)
-    x = LSTM(hidden_size, return_sequences=True)(x)     # (batch, T_answer, hidden_size)
+    x = RepeatVector(answer_len)(enc)                  
+    x = LSTM(hidden_size, return_sequences=True)(x)    
 
     x = TimeDistributed(Dense(flat_dim, activation='sigmoid'))(x)
     outputs = TimeDistributed(Reshape(answer_img_shape))(x)  
@@ -441,12 +430,12 @@ def show_text2img_examples(model, X, y_true, n_examples=3, save_prefix=None):
 
 y_img = y_img.astype('float32') / 255.0
 
-print("X_text_onehot shape:", X_text_onehot.shape)   # (N, T_query, num_chars)
-print("y_img shape:", y_img.shape)                   # (N, T_answer, H, W[,C])
+print("X_text_onehot shape:", X_text_onehot.shape)  
+print("y_img shape:", y_img.shape)                
 
 N, query_len, num_chars = X_text_onehot.shape
 _, answer_len, *answer_img_shape = y_img.shape
-answer_img_shape = tuple(answer_img_shape)           # e.g. (28, 28) or (28, 28, 1)
+answer_img_shape = tuple(answer_img_shape)        
 
 splits_t2i = {
     "50/50": 0.50,
@@ -457,7 +446,7 @@ results_t2i_loss = {}
 cb = [EarlyStopping(patience=10, restore_best_weights=True, monitor="val_loss")]
 
 for name, test_size in splits_t2i.items():
-    print(f"\n--- T2I SPLIT {name} ---")
+    print(f"\nT2I SPLIT {name}")
     Xtr_t2i, Xte_t2i, ytr_t2i, yte_t2i = train_test_split(X_text_onehot, y_img, test_size=test_size, random_state=42)
 
     t2i_model = build_text2img_model_full(query_len, num_chars, answer_len, answer_img_shape, hidden_size=256)
@@ -471,20 +460,16 @@ for name, test_size in splits_t2i.items():
     # SAVE HISTORY
     all_histories[name]['Text-to-Image'] = hist_t2i
 
-    # FIX: Unpack the results. evaluate returns [loss, accuracy]
     eval_results = t2i_model.evaluate(Xte_t2i, yte_t2i, verbose=0)
-    test_loss = eval_results[0] # The first item is always the loss
+    test_loss = eval_results[0] 
     
     results_t2i_loss[name] = test_loss
     
-    # Optional: Show examples
     show_text2img_examples(t2i_model, Xte_t2i, yte_t2i, n_examples=3, save_prefix=f"t2i_{name.replace('/','')}")
 
-print("\n\n FINAL TEXT→IMAGE TEST LOSS SUMMARY:")
+print("\n\n FINAL TEXT2IMAGE TEST LOSS SUMMARY:")
 for name, loss in results_t2i_loss.items():
-    print(f"{name} split → test loss = {loss:.4f}")
-
-
+    print(f"{name} split to test loss = {loss:.4f}")
 
 def create_classifier_dataset(num_samples_per_class=2000):
     X_cls = []
@@ -576,7 +561,7 @@ judge_model = build_judge_model()
 judge_model.fit(X_judge_tr, y_judge_tr, validation_data=(X_judge_te, y_judge_te), epochs=100, batch_size=64, verbose=1)
 
 _, X_test_oh_judge, _, y_test_img_judge = train_test_split(
-    X_text_onehot, y_img, test_size=0.90, random_state=42 # Matching the 10/90 split
+    X_text_onehot, y_img, test_size=0.90, random_state=42 
 )
 _, _, _, y_test_str_judge_oh = train_test_split(
     X_text_onehot, y_text_onehot, test_size=0.90, random_state=42
@@ -636,7 +621,7 @@ def plot_combined_in_row(histories_dict, filename="combined_splits_row.png"):
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.savefig(filename)
-    print(f"\n✅ Saved side-by-side plot: {filename}")
+    print(f"\nSaved side-by-side plot: {filename}")
     plt.show()
 
 plot_combined_in_row(all_histories)
@@ -707,10 +692,8 @@ def plot_deep_comparison(shallow_hist_dict, deep_hist_dict, split_key="25/75"):
     for i, model_name in enumerate(models_to_compare):
         ax = axes[i]
         
-        # Get Shallow History (from your 'all_histories' global var)
         if split_key in shallow_hist_dict and model_name in shallow_hist_dict[split_key]:
             shallow_hist = shallow_hist_dict[split_key][model_name]
-            # Handle metrics naming
             acc_key = 'accuracy' if 'accuracy' in shallow_hist.history else 'binary_accuracy'
             val_acc_key = 'val_accuracy' if 'val_accuracy' in shallow_hist.history else 'val_binary_accuracy'
             
@@ -718,7 +701,6 @@ def plot_deep_comparison(shallow_hist_dict, deep_hist_dict, split_key="25/75"):
         else:
             print(f"Warning: No shallow history found for {model_name} in {split_key}")
 
-        # Get Deep History
         deep_hist = deep_hist_dict[model_name]
         d_acc_key = 'accuracy' if 'accuracy' in deep_hist.history else 'binary_accuracy'
         d_val_acc_key = 'val_accuracy' if 'val_accuracy' in deep_hist.history else 'val_binary_accuracy'
@@ -736,13 +718,9 @@ def plot_deep_comparison(shallow_hist_dict, deep_hist_dict, split_key="25/75"):
     plt.show()
 
 # Run the comparison plot
-# Note: This relies on 'all_histories' being populated from your previous loops
 plot_deep_comparison(all_histories, deep_histories, split_key="25/75")
 
-
-# ==============================================================================
 # FINAL COMPARISON: Regular (Shallow) vs Deep (LSTM) on 50/50 Split
-# ==============================================================================
 
 print("\n" + "="*60)
 print("TRAINING DEEP MODELS ON 50/50 SPLIT FOR FINAL COMPARISON")
@@ -753,17 +731,15 @@ deep_histories_5050 = {}
 split_name = "50/50"
 test_pct = 0.50
 
-# --- 1. Train Deep Text-to-Text (50/50) ---
+# Train Deep Text-to-Text (50/50) 
 print(f"\nTraining Deep Text-to-Text ({split_name})...")
 Xtr, Xte, ytr, yte = train_test_split(X_text_onehot, y_text_onehot, test_size=test_pct, random_state=42)
 
-# Re-build to ensure fresh weights
 deep_t2t = build_text2text_model_deep(hidden_size=256)
 hist_deep_t2t = deep_t2t.fit(Xtr, ytr, validation_split=0.1, epochs=50, batch_size=128, verbose=1)
 deep_histories_5050['Text-to-Text'] = hist_deep_t2t
 
-
-# --- 2. Train Deep Image-to-Text (50/50) ---
+# Train Deep Image-to-Text (50/50) 
 print(f"\nTraining Deep Image-to-Text ({split_name})...")
 Xtr_i2t, Xte_i2t, ytr_i2t, yte_i2t = train_test_split(X_img, y_text_onehot, test_size=test_pct, random_state=42)
 img_shape = Xtr_i2t.shape[1:]
@@ -773,7 +749,7 @@ hist_deep_i2t = deep_i2t.fit(Xtr_i2t, ytr_i2t, validation_split=0.1, epochs=50, 
 deep_histories_5050['Image-to-Text'] = hist_deep_i2t
 
 
-# --- 3. Train Deep Text-to-Image (50/50) ---
+# Train Deep Text-to-Image (50/50)
 print(f"\nTraining Deep Text-to-Image ({split_name})...")
 Xtr_t2i, Xte_t2i, ytr_t2i, yte_t2i = train_test_split(X_text_onehot, y_img, test_size=test_pct, random_state=42)
 
@@ -782,8 +758,7 @@ hist_deep_t2i = deep_t2i.fit(Xtr_t2i, ytr_t2i, validation_split=0.1, epochs=50, 
 deep_histories_5050['Text-to-Image'] = hist_deep_t2i
 
 
-# --- 4. Plotting Function ---
-
+# Plotting Function
 def plot_shallow_vs_deep_all_models(shallow_hist_dict, deep_hist_dict, split_key="50/50"):
     models = ["Text-to-Text", "Image-to-Text", "Text-to-Image"]
     
@@ -793,7 +768,7 @@ def plot_shallow_vs_deep_all_models(shallow_hist_dict, deep_hist_dict, split_key
     for i, model_name in enumerate(models):
         ax = axes[i]
         
-        # 1. Plot Shallow (Regular)
+        # Plot Shallow (Regular)
         if split_key in shallow_hist_dict and model_name in shallow_hist_dict[split_key]:
             hist = shallow_hist_dict[split_key][model_name]
             val_acc_key = 'val_accuracy' if 'val_accuracy' in hist.history else 'val_binary_accuracy'
@@ -801,7 +776,7 @@ def plot_shallow_vs_deep_all_models(shallow_hist_dict, deep_hist_dict, split_key
         else:
             print(f"Warning: Missing Shallow history for {model_name}")
 
-        # 2. Plot Deep (LSTM)
+        # Plot Deep (LSTM)
         if model_name in deep_hist_dict:
             hist = deep_hist_dict[model_name]
             val_acc_key = 'val_accuracy' if 'val_accuracy' in hist.history else 'val_binary_accuracy'
@@ -817,7 +792,7 @@ def plot_shallow_vs_deep_all_models(shallow_hist_dict, deep_hist_dict, split_key
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.savefig("regular_vs_deep_5050.png")
-    print("\n✅ Saved comparison plot to regular_vs_deep_5050.png")
+    print("\nSaved comparison plot to regular_vs_deep_5050.png")
     plt.show()
 
 plot_shallow_vs_deep_all_models(all_histories, deep_histories_5050, split_key="50/50")
