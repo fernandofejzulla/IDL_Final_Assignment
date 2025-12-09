@@ -642,60 +642,63 @@ for i in range(5):
 # PLOTTING: Accuracy vs Val Accuracy (3 Splits x 3 Models)
 # ==============================================================================
 
-def plot_all_accuracies(histories_dict, filename="all_splits_accuracy.png"):
-    splits = ["50/50", "25/75", "10/90"]
-    models = ["Text-to-Text", "Image-to-Text", "Text-to-Image"]
-    
-    # Create 3x3 Grid
-    fig, axes = plt.subplots(3, 3, figsize=(18, 15))
-    fig.suptitle("Model Accuracy vs Validation Accuracy across Splits", fontsize=16)
+# ==============================================================================
+# PLOTTING: Combined Accuracy per Split (3 Models on 1 Graph)
+# ==============================================================================
 
-    for i, split in enumerate(splits):
-        for j, model_name in enumerate(models):
-            ax = axes[i, j]
-            
-            # Check if history exists for this split/model combination
+def plot_combined_per_split(histories_dict):
+    splits = ["50/50", "25/75", "10/90"]
+    
+    # Define colors for each model so they are distinct
+    # Format: (Model Name, Color)
+    model_configs = [
+        ("Text-to-Text", "blue"),
+        ("Image-to-Text", "orange"),
+        ("Text-to-Image", "green")
+    ]
+
+    for split in splits:
+        plt.figure(figsize=(10, 6))
+        plt.title(f"Combined Model Accuracy (Split: {split})", fontsize=14, fontweight='bold')
+        
+        # Plot each model on this single figure
+        for model_name, color in model_configs:
             if split in histories_dict and model_name in histories_dict[split]:
                 hist = histories_dict[split][model_name]
                 
-                # Get Accuracy keys (handle potential naming diffs)
-                # T2T/I2T usually 'accuracy', T2I might be 'accuracy' or 'binary_accuracy'
+                # key detection
                 acc_key = 'accuracy' if 'accuracy' in hist.history else 'binary_accuracy'
                 val_acc_key = 'val_accuracy' if 'val_accuracy' in hist.history else 'val_binary_accuracy'
-
+                
                 if acc_key in hist.history:
                     acc = hist.history[acc_key]
                     val_acc = hist.history.get(val_acc_key, [])
                     epochs = range(1, len(acc) + 1)
-
-                    ax.plot(epochs, acc, 'b-', label='Train Acc')
-                    if len(val_acc) > 0:
-                        ax.plot(epochs, val_acc, 'r--', label='Val Acc')
                     
-                    # Annotate Final Value
-                    final_val = val_acc[-1] if len(val_acc) > 0 else acc[-1]
-                    ax.text(0.5, 0.1, f'Final: {final_val:.2%}', transform=ax.transAxes, 
-                            ha='center', bbox=dict(facecolor='white', alpha=0.8))
-                else:
-                    ax.text(0.5, 0.5, "No Accuracy Metric Found", ha='center')
+                    # Plot Training Line (Solid)
+                    plt.plot(epochs, acc, color=color, linestyle='-', linewidth=1.5, 
+                             label=f'{model_name} Train')
+                    
+                    # Plot Validation Line (Dashed)
+                    if len(val_acc) > 0:
+                        plt.plot(epochs, val_acc, color=color, linestyle='--', linewidth=1.5, 
+                                 label=f'{model_name} Val')
             else:
-                ax.text(0.5, 0.5, "Data Not Available", ha='center')
+                print(f"Skipping {model_name} for split {split} (Data not found)")
 
-            # Formatting
-            if i == 0: ax.set_title(model_name, fontsize=14, fontweight='bold')
-            if j == 0: ax.set_ylabel(f"Split {split}\nAccuracy", fontsize=12, fontweight='bold')
-            
-            ax.grid(True)
-            ax.legend(loc='lower right')
-            if i == 2: ax.set_xlabel("Epochs")
+        plt.xlabel("Epochs")
+        plt.ylabel("Accuracy")
+        plt.grid(True, alpha=0.5)
+        plt.legend()
+        
+        # Save individually
+        filename = f"combined_accuracy_{split.replace('/', '')}.png"
+        plt.savefig(filename)
+        print(f"✅ Saved combined plot: {filename}")
+        plt.show()
 
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust for suptitle
-    plt.savefig(filename)
-    print(f"\n✅ Accuracy plot saved to {filename}")
-    plt.show()
-
-# Run the plotter
-plot_all_accuracies(all_histories)
+# Run the new plotter
+plot_combined_per_split(all_histories)
 
 # ==============================================================================
 # TASK 2 PART 5: DEEP MODELS (Additional LSTM Layers)
